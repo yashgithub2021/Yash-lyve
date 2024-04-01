@@ -52,9 +52,23 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
 exports.deleteEvent = catchAsyncError(async (req, res, next) => {
   const {
     params: { eventId },
+    userId,
   } = req;
 
-  await eventModel.destroy({ where: { id: eventId } });
+  const event = await eventModel.findByPk(eventId);
+
+  // Check if event exists
+  if (!event) {
+    return res.status(StatusCodes.NOT_FOUND).json({ success: false, message: "Event not found" });
+  }
+
+  // Check if the current user is the creator of the event
+  if (event.userId !== userId) {
+    return res.status(StatusCodes.FORBIDDEN).json({ success: false, message: "Unauthorized" });
+  }
+
+  // Delete the event
+  await event.destroy();
 
   res
     .status(StatusCodes.OK)
@@ -86,21 +100,43 @@ exports.getUpcomingEvents = catchAsyncError(async (req, res, next) => {
 });
 
 exports.getRecommendedEvents = catchAsyncError(async (req, res, next) => {
-  try {
-    // Fetch all events ordered by createdAt in descending order
-    const allEvents = await eventModel.findAll({
-      order: [["createdAt", "DESC"]],
-      include: [
-        { model: genreModel, as: "genre", attributes: ["id", "name"] },
-        { model: userModel, as: "creator", attributes: ["id", "username", "avatar"] },
-      ],
+
+  const { userId } = req
+  // Fetch all events ordered by createdAt in descending order
+  const allEvents = await eventModel.findAll({
+    order: [["createdAt", "DESC"]],
+    include: [
+      { model: genreModel, as: "genre", attributes: ["id", "name", "thumbnail"] },
+      { model: userModel, as: "creator", attributes: ["id", "username", "avatar"] },
+    ],
+  });
+
+  const eventsWithWishlist = await Promise.all(allEvents.map(async (event) => {
+    const isWishlisted = await Wishlist.findOne({
+      where: { userId, eventId: event.id, isWishlisted: true },
     });
 
-    res.status(StatusCodes.OK).json({ allEvents });
-  } catch (error) {
-    console.error("Error fetching events:", error);
-    next(new ErrorHandler("Error fetching events", StatusCodes.INTERNAL_SERVER_ERROR));
-  }
+    const isLiked = await Wishlist.findOne({
+      where: { userId, eventId: event.id, liked: true },
+    });
+
+    const likesCount = await Wishlist.count({
+      where: { eventId: event.id, liked: true },
+    });
+    const dislikesCount = await Wishlist.count({
+      where: { eventId: event.id, disliked: true },
+    });
+
+    return {
+      ...event.toJSON(),
+      isWishlisted: !!isWishlisted,
+      isLiked: !!isLiked,
+      likes_count: likesCount,
+      dislikes_count: dislikesCount,
+    };
+  }));
+
+  res.status(StatusCodes.OK).json({ recommendedEvents: eventsWithWishlist });
 })
 
 exports.getEvents = catchAsyncError(async (req, res, next) => {
@@ -114,7 +150,7 @@ exports.getEvents = catchAsyncError(async (req, res, next) => {
       {
         model: genreModel,
         as: "genre",
-        attributes: ["id", "name"],
+        attributes: ["id", "name", "thumbnail"],
       },
       {
         model: userModel,
@@ -188,9 +224,24 @@ exports.getEvents = catchAsyncError(async (req, res, next) => {
     const isWishlisted = await Wishlist.findOne({
       where: { userId, eventId: event.id, isWishlisted: true },
     });
+
+    const isLiked = await Wishlist.findOne({
+      where: { userId, eventId: event.id, liked: true },
+    });
+
+    const likesCount = await Wishlist.count({
+      where: { eventId: event.id, liked: true },
+    });
+    const dislikesCount = await Wishlist.count({
+      where: { eventId: event.id, disliked: true },
+    });
+
     return {
       ...event.toJSON(),
       isWishlisted: !!isWishlisted,
+      isLiked: !!isLiked,
+      likes_count: likesCount,
+      dislikes_count: dislikesCount,
     };
   }));
 
@@ -274,7 +325,7 @@ exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
       {
         model: genreModel,
         as: "genre",
-        attributes: ["id", "name"],
+        attributes: ["id", "name", "thumbnail"],
       },
       {
         model: userModel,
@@ -294,10 +345,23 @@ exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
       },
       attributes: ["id"],
     });
+    const isLiked = await Wishlist.findOne({
+      where: { userId, eventId: event.id, liked: true },
+    });
+
+    const likesCount = await Wishlist.count({
+      where: { eventId: event.id, liked: true },
+    });
+    const dislikesCount = await Wishlist.count({
+      where: { eventId: event.id, disliked: true },
+    });
 
     return {
       ...event.toJSON(),
       isWishlisted: !!isWishlisted, // Convert to boolean
+      isLiked: !!isLiked,
+      likes_count: likesCount,
+      dislikes_count: dislikesCount,
     };
   }));
 
@@ -332,6 +396,7 @@ exports.getMyUpcomingEvents = catchAsyncError(async (req, res, next) => {
       userId: userId,
       event_date: { [Op.gt]: today },
     },
+    attributes: ["id", "title", "event_date", "thumbnail"],
     order: [['event_date', 'ASC']], // Order by event date ascending
     limit: limit,
     offset: offset,
@@ -386,7 +451,7 @@ exports.globalSearch = catchAsyncError(async (req, res, next) => {
       {
         model: genreModel,
         as: 'genre',
-        attributes: ['name',],
+        attributes: ["id", "name", "thumbnail"],
       },
     ],
   });
@@ -395,9 +460,23 @@ exports.globalSearch = catchAsyncError(async (req, res, next) => {
     const isWishlisted = await Wishlist.findOne({
       where: { userId, eventId: event.id, isWishlisted: true },
     });
+
+    const isLiked = await Wishlist.findOne({
+      where: { userId, eventId: event.id, liked: true },
+    });
+
+    const likesCount = await Wishlist.count({
+      where: { eventId: event.id, liked: true },
+    });
+    const dislikesCount = await Wishlist.count({
+      where: { eventId: event.id, disliked: true },
+    });
     return {
       ...event.toJSON(),
       isWishlisted: !!isWishlisted,
+      isLiked: !!isLiked,
+      likes_count: likesCount,
+      dislikes_count: dislikesCount,
     };
   }));
 

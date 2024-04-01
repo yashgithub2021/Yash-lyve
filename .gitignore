@@ -29,3 +29,4 @@ yarn-error.log*
 /package-lock.json
 /config/config.env
 /config/local.env
+/config/live.env

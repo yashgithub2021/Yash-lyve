@@ -4,7 +4,7 @@ const errorMiddleware = require("./middlewares/error");
 const dotenv = require("dotenv");
 const app = express();
 
-const path = "./config/config.env";
+const path = "./config/live.env";
 // const path = "./config/local.env";
 dotenv.config({ path });
 
@@ -20,12 +20,14 @@ app.use(
 app.get("/", (req, res, next) => res.json({ message: "Server is running" }));
 
 //use all router here
-const { userRoute, eventRouter, adminRouter, wishlistRoute, userModel } = require("./src");
+const { userRoute, eventRouter, adminRouter, wishlistRoute, contentRoute } = require("./src");
 
 app.use("/api/users", userRoute);
 app.use("/api/events", eventRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/post", wishlistRoute)
+app.use("/api/content", contentRoute);
+
 
 app.all("*", async (req, res) => {
   res.status(404).json({

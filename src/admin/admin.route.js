@@ -11,10 +11,17 @@ const {
 const {
   createGenre,
 } = require("../events/event.controller");
+
+const { createUpdateContent, getContent, deleteContent } = require("../content/content.controller");
 const { upload } = require("../../utils/s3");
 
 const adminRouter = express.Router();
 const authAdmin = authRole(["Admin"]);
+
+adminRouter.route("/content")
+  .get(auth, authAdmin, getContent)
+  .delete(auth, authAdmin, deleteContent)
+  .post(auth, authAdmin, createUpdateContent);
 
 adminRouter
   .route("/users")
