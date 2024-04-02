@@ -533,6 +533,19 @@ exports.getStreamedEvents = catchAsyncError(async (req, res, next) => {
   const query = {
     where,
     attributes: ["id", "title", "thumbnail"],
+    include: [
+      {
+        model: genreModel,
+        as: "genre",
+        attributes: ["id", "name", "thumbnail"],
+      },
+      {
+        model: userModel,
+        as: "creator",
+        attributes: ["id", "username", "avatar"],
+        where: { deletedAt: null },
+      },
+    ],
   };
 
   if (page_number && page_size) {

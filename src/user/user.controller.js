@@ -321,7 +321,7 @@ exports.getProfile = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
 
   const user = await userModel.findByPk(userId, {
-    attributes: ["avatar", "username", "email", "mobile_no", "dob", "gender"], // Exclude 'role' attribute
+    attributes: ["id", "avatar", "username", "email", "mobile_no", "dob", "gender", "country"], // Exclude 'role' attribute
   });
 
   if (!user)
