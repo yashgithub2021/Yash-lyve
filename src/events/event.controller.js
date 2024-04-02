@@ -107,7 +107,7 @@ exports.getRecommendedEvents = catchAsyncError(async (req, res, next) => {
     order: [["createdAt", "DESC"]],
     include: [
       { model: genreModel, as: "genre", attributes: ["id", "name", "thumbnail"] },
-      { model: userModel, as: "creator", attributes: ["id", "username", "avatar"] },
+      { model: userModel, as: "creator", attributes: ["id", "username", "avatar"], where: { deletedAt: null } },
     ],
   });
 
@@ -155,7 +155,8 @@ exports.getEvents = catchAsyncError(async (req, res, next) => {
       {
         model: userModel,
         as: "creator",
-        attributes: ["id", "username", "avatar"]
+        attributes: ["id", "username", "avatar"],
+        where: { deletedAt: null },
       },
     ],
     order: [['createdAt', 'DESC']],
@@ -426,6 +427,7 @@ exports.globalSearch = catchAsyncError(async (req, res, next) => {
       [Op.or]: [
         { username: { [Op.iLike]: `%${search_query}%` } },
       ],
+
     },
     ...query,
     attributes: ['id', 'avatar', 'username'],
@@ -453,6 +455,12 @@ exports.globalSearch = catchAsyncError(async (req, res, next) => {
         as: 'genre',
         attributes: ["id", "name", "thumbnail"],
       },
+      {
+        model: userModel,
+        as: "creator",
+        attributes: ["id", "username", "avatar"],
+        where: { deletedAt: null }
+      }
     ],
   });
 
@@ -507,3 +515,19 @@ exports.globalSearch = catchAsyncError(async (req, res, next) => {
   });
 
 });
+
+exports.getStreamedEvents = catchAsyncError(async (req, res, next) => {
+  console.log("Get Streamed Events")
+  const { page_number, page_size, name } = req.query;
+  const { userId } = req.params
+
+  const events = await eventModel.findAll({
+    where: {
+      userId: userId,
+      status: "Completed"
+    },
+    attributes: ["id", "title", "thumbnail"]
+  })
+
+  res.status(StatusCodes.OK).json({ streamedEvents: events })
+})

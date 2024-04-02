@@ -321,7 +321,7 @@ exports.getProfile = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
 
   const user = await userModel.findByPk(userId, {
-    attributes: { exclude: ['role'] }, // Exclude 'role' attribute
+    attributes: ["avatar", "username", "email", "mobile_no", "dob", "gender"], // Exclude 'role' attribute
   });
 
   if (!user)
@@ -329,6 +329,85 @@ exports.getProfile = catchAsyncError(async (req, res, next) => {
 
   res.status(StatusCodes.OK).json({ user });
 });
+
+
+exports.getUserProfile = catchAsyncError(async (req, res, next) => {
+  console.log("User Profile by Id", req.params);
+
+  const { userId } = req.params;
+
+  // Find the user's profile
+  const user = await userModel.findByPk(userId, {
+    attributes: ["id", "username", "avatar"],
+  });
+
+  if (!user) {
+    return res.status(StatusCodes.NOT_FOUND).json({ message: "User not found" });
+  }
+
+  // Find the current user's following list
+  const userFollowing = await userModel.findAll({
+    where: {
+      id: {
+        [Op.in]: db.literal(`(
+          SELECT "following_user_id" 
+          FROM "Follow" 
+          WHERE "follower_user_id" = ${req.userId}
+        )`),
+      },
+    },
+    attributes: ["id"],
+  });
+
+  const following_count = await userModel.count({
+    where: {
+      id: {
+        [Op.in]: db.literal(`(
+          SELECT "following_user_id" 
+          FROM "Follow" 
+          WHERE "follower_user_id" = ${userId}
+        )`),
+      },
+    },
+    distinct: true,
+    col: 'id',
+  });
+  const follower_count = await userModel.count({
+    where: {
+      id: {
+        [Op.in]: db.literal(`(
+          SELECT "follower_user_id" 
+          FROM "Follow" 
+          WHERE "following_user_id" = ${userId}
+        )`),
+      },
+    },
+    distinct: true,
+    col: 'id',
+  });
+  console.log("Following Count", following_count)
+  console.log("Follower Count", follower_count)
+
+  const followingUserIds = userFollowing.map((user) => user.id);
+
+  const streamed = await eventModel.count({
+    where: {
+      userId: userId,
+      status: "Completed",
+    },
+  });
+  // Add following field to the user object
+  const userProfile = {
+    ...user.toJSON(),
+    following: followingUserIds.includes(userId),
+    following_count: following_count,
+    follower_count: follower_count,
+    streamed_count: streamed
+  };
+
+  res.status(StatusCodes.OK).json({ user: userProfile });
+});
+
 
 
 exports.updateProfile = catchAsyncError(async (req, res, next) => {

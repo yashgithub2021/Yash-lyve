@@ -12,7 +12,8 @@ const {
   getFollowingEvents,
   getGenres,
   getMyUpcomingEvents,
-  globalSearch
+  globalSearch,
+  getStreamedEvents
 } = require("./event.controller");
 
 router.post("/create", upload.single("thumbnail"), auth, createEvent);
@@ -28,6 +29,8 @@ router.get("/get-following-events", auth, getFollowingEvents);
 router.get("/global-search", auth, globalSearch);
 
 router.get("/my-upcoming-events", auth, getMyUpcomingEvents);
+
+router.get("/streamed-events/:userId", auth, getStreamedEvents);
 
 router.route("/recommended-events").get(auth, getRecommendedEvents);
 
