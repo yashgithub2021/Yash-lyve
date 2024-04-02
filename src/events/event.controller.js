@@ -517,17 +517,34 @@ exports.globalSearch = catchAsyncError(async (req, res, next) => {
 });
 
 exports.getStreamedEvents = catchAsyncError(async (req, res, next) => {
-  console.log("Get Streamed Events")
+  console.log("Get Streamed Events");
   const { page_number, page_size, name } = req.query;
-  const { userId } = req.params
+  const { userId } = req.params;
 
-  const events = await eventModel.findAll({
-    where: {
-      userId: userId,
-      status: "Completed"
-    },
-    attributes: ["id", "title", "thumbnail"]
-  })
+  let where = {
+    userId: userId,
+    status: "Completed",
+  };
 
-  res.status(StatusCodes.OK).json({ streamedEvents: events })
-})
+  if (name) {
+    where.title = { [Op.iLike]: `%${name}%` };
+  }
+
+  const query = {
+    where,
+    attributes: ["id", "title", "thumbnail"],
+  };
+
+  if (page_number && page_size) {
+    const currentPage = parseInt(page_number, 10) || 1;
+    const limit = parseInt(page_size, 10) || 10;
+    const offset = (currentPage - 1) * limit;
+
+    query.offset = offset;
+    query.limit = limit;
+  }
+
+  const events = await eventModel.findAll(query);
+
+  res.status(StatusCodes.OK).json({ streamedEvents: events });
+});
