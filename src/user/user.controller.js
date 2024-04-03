@@ -8,6 +8,7 @@ const { s3Uploadv2 } = require("../../utils/s3");
 const { Op } = require("sequelize");
 const { db } = require("../../config/database")
 const { eventModel } = require("../events/event.model");
+const { notificationModel } = require("../notification");
 
 const getMsg = (otp) => {
   return `<html lang="en">
@@ -52,6 +53,11 @@ const storeOTP = async ({ otp, userId }) => {
     await otpInstance.save();
   }
 }
+
+const createNotification = async (userId, text, title) => {
+  await notificationModel.create({ userId, text, title });
+  console.log("Notification created successfully");
+};
 
 exports.register = catchAsyncError(async (req, res, next) => {
   console.log("register", req.body);
@@ -482,6 +488,10 @@ exports.followCreator = catchAsyncError(async (req, res, next) => {
   }
 
   await currUser.addFollowing(targetCreator);
+
+  const message = `${currUser.username} started following you.`;
+  await createNotification(targetCreator.id, message, "follow");
+
   res
     .status(StatusCodes.CREATED)
     .json({ success: true, message: "You are now following this user" });
@@ -501,7 +511,7 @@ exports.unfollowCreator = catchAsyncError(async (req, res, next) => {
 
   if (!targetCreator) {
     return next(
-      new ErrorHandler("Creator with given id not found", StatusCodes.NOT_FOUND)
+      new ErrorHandler("User with given id not found", StatusCodes.NOT_FOUND)
     );
   }
 
@@ -519,7 +529,7 @@ exports.unfollowCreator = catchAsyncError(async (req, res, next) => {
 
   res.status(StatusCodes.OK).json({
     success: true,
-    message: "You have unfollowed this creator successfully",
+    message: "You have unfollowed this user successfully",
   });
 });
 

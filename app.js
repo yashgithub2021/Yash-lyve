@@ -20,13 +20,14 @@ app.use(
 app.get("/", (req, res, next) => res.json({ message: "Server is running" }));
 
 //use all router here
-const { userRoute, eventRouter, adminRouter, wishlistRoute, contentRoute } = require("./src");
+const { userRoute, eventRouter, adminRouter, wishlistRoute, contentRoute, notificationRoute } = require("./src");
 
 app.use("/api/users", userRoute);
 app.use("/api/events", eventRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/post", wishlistRoute)
 app.use("/api/content", contentRoute);
+app.use("/api/notification", notificationRoute);
 
 
 app.all("*", async (req, res) => {

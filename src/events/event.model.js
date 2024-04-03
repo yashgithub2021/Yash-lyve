@@ -44,6 +44,11 @@ function isTime(time) {
 const eventModel = db.define(
   "Event",
   {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4, // Use UUIDV4 to generate UUID
+      primaryKey: true,
+    },
     title: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -124,6 +129,11 @@ const eventModel = db.define(
 );
 
 const genreModel = db.define("Genre", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4, // Use UUIDV4 to generate UUID
+    primaryKey: true,
+  },
   name: {
     type: DataTypes.STRING,
     allowNull: false,

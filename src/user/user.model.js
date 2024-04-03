@@ -31,6 +31,11 @@ const random_profile = () => {
 const userModel = db.define(
   "User",
   {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4, // Use UUIDV4 to generate UUID
+      primaryKey: true,
+    },
     email: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -193,6 +198,11 @@ userModel.getUpdateFields = function (userData) {
 const otpModel = db.define(
   "OTP",
   {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4, // Use UUIDV4 to generate UUID
+      primaryKey: true,
+    },
     otp: {
       type: DataTypes.STRING,
       allowNull: false,

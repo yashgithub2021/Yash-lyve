@@ -3,6 +3,7 @@ const { eventModel, eventRouter } = require("./events");
 const { adminRouter } = require("./admin");
 const { wishlistRoute, Wishlist } = require("./wishlist");
 const { contentRoute } = require("./content");
+const { notificationModel, notificationRoute } = require("./notification");
 
 userModel.hasMany(eventModel, { foreignKey: "userId", as: "events" });
 eventModel.belongsTo(userModel, { foreignKey: "userId", as: "creator" });
@@ -13,6 +14,8 @@ Wishlist.belongsTo(eventModel, { foreignKey: "eventId" });
 userModel.hasMany(Wishlist, { foreignKey: "userId", as: "wishlists" });
 Wishlist.belongsTo(userModel, { foreignKey: "userId" });
 
+userModel.hasMany(notificationModel, { foreignKey: "userId", as: "notifications" });
+notificationModel.belongsTo(userModel, { foreignKey: "userId", as: "user" });
 
 const insertQuery = async () => {
     // create admin
@@ -31,6 +34,6 @@ const insertQuery = async () => {
 
 };
 
-(async () => { await insertQuery(); })();
+// (async () => { await insertQuery(); })();
 
-module.exports = { userModel, userRoute, eventModel, eventRouter, adminRouter, wishlistRoute, contentRoute };
+module.exports = { userModel, userRoute, eventModel, eventRouter, adminRouter, wishlistRoute, contentRoute, notificationRoute };

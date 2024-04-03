@@ -1,5 +1,16 @@
 const catchAsyncError = require("../../utils/catchAsyncError");
 const { Wishlist } = require("./wishlist.model");
+const { notificationModel } = require("../notification");
+const { eventModel } = require("../events/event.model");
+const { userModel } = require("../user");
+const { StatusCodes } = require("http-status-codes");
+
+
+const createNotification = async (userId, text, title) => {
+    await notificationModel.create({ userId, text, title });
+    console.log("Notification created successfully");
+};
+
 
 const addLikeToEvent = async (userId, eventId) => {
     try {
@@ -96,16 +107,32 @@ const handleEventWishlist = async (userId, eventId) => {
 };
 
 exports.likeEvent = catchAsyncError(async (req, res) => {
-    const { userId } = req; // Assuming you have userId from authentication middleware
+    const { userId } = req;
     const { eventId } = req.params;
 
-    await addLikeToEvent(userId, eventId);
-    res.status(200).json({ success: true, message: "Like added to event" });
+    // Get the event details to find its creator
+    const event = await eventModel.findByPk(eventId);
+    console.log("Event:", event);
 
+    if (!event || event === undefined) {
+        return res.status(StatusCodes.NOT_FOUND).json({ message: "Event not found" });
+    }
+    const user = await userModel.findByPk(userId);
+    if (!user) {
+        return res.status(StatusCodes.NOT_FOUND).json({ message: "User not found" });
+    }
+    await addLikeToEvent(userId, eventId);
+
+    const eventCreatorId = event.userId;
+    const message = `${user.username} liked your event: ${event.title}`;
+    await createNotification(eventCreatorId, message, "like");
+
+    res.status(StatusCodes.OK).json({ success: true, message: "Like added to event" });
 });
 
+
 exports.wishlistEvent = catchAsyncError(async (req, res) => {
-    const { userId } = req; // Assuming you have userId from authentication middleware
+    const { userId } = req;
     const { eventId } = req.params;
 
     await handleEventWishlist(userId, eventId);
@@ -114,7 +141,7 @@ exports.wishlistEvent = catchAsyncError(async (req, res) => {
 });
 
 exports.dislikeEvent = catchAsyncError(async (req, res) => {
-    const { userId } = req; // Assuming you have userId from authentication middleware
+    const { userId } = req;
     const { eventId } = req.params;
 
     await addDislikeToEvent(userId, eventId);

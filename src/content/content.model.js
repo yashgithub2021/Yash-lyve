@@ -7,6 +7,11 @@ const validateEmail = (email) => {
 };
 
 const contentModel = db.define("Content", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4, // Use UUIDV4 to generate UUID
+    primaryKey: true,
+  },
   title: {
     type: DataTypes.ENUM("TERMS_AND_CONDITIONS", "PRIVACY_POLICY"),
     allowNull: false

@@ -2,6 +2,11 @@ const { DataTypes } = require("sequelize");
 const { db } = require("../../config/database");
 
 const Wishlist = db.define("Wishlist", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4, // Use UUIDV4 to generate UUID
+    primaryKey: true,
+  },
   isWishlisted: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

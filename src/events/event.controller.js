@@ -7,7 +7,7 @@ const { s3Uploadv2 } = require("../../utils/s3");
 const { Op } = require("sequelize");
 const formattedQuery = require("../../utils/apiFeatures");
 const { Wishlist } = require("../wishlist");
-const { db } = require("../../config/database")
+const { db } = require("../../config/database");
 
 exports.createEvent = catchAsyncError(async (req, res, next) => {
   console.log("Create event", req.body);
@@ -560,4 +560,43 @@ exports.getStreamedEvents = catchAsyncError(async (req, res, next) => {
   const events = await eventModel.findAll(query);
 
   res.status(StatusCodes.OK).json({ streamedEvents: events });
+});
+
+exports.getStreamedDetails = catchAsyncError(async (req, res, next) => {
+  const { eventId } = req.params;
+
+  const event = await eventModel.findOne({
+    where: {
+      id: eventId,
+      status: "Completed",
+    },
+    include: [
+      {
+        model: genreModel,
+        as: "genre",
+        attributes: ["id", "name", "thumbnail"],
+      },
+      {
+        model: userModel,
+        as: "creator",
+        attributes: ["id", "username", "avatar"],
+        where: { deletedAt: null },
+      },
+    ],
+  });
+
+  if (!event) {
+    return res.status(StatusCodes.NOT_FOUND).json({ message: "Event not found" });
+  }
+
+  event.setDataValue("totalGuest", "500");
+  event.setDataValue("comments", "1588");
+  event.setDataValue("likes", "12454");
+  event.setDataValue("dislikes", "314");
+  event.setDataValue("dislikes", "314");
+  event.setDataValue("totalAmount", 875242);
+  event.setDataValue("commission", 245634);
+  event.setDataValue("payStatus", "Success");
+  event.setDataValue("payout", 631479);
+  res.status(StatusCodes.OK).json({ eventDetails: event });
 });
