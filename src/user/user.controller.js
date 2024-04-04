@@ -324,9 +324,10 @@ exports.updatePassword = catchAsyncError(async (req, res, next) => {
 exports.getAllUsers = catchAsyncError(async (req, res, next) => {
   console.log("Admin Get All users");
   const { page_number, page_size, search_query } = req.query;
-
+  const { userId } = req;
   let where = {
-    role: "User"
+    role: "User",
+    id: { [Op.not]: userId }
   };
 
   if (search_query) {
@@ -337,7 +338,8 @@ exports.getAllUsers = catchAsyncError(async (req, res, next) => {
   }
 
   const query = {
-    where
+    where,
+    attributes: ["id", "username", "avatar"]
   };
 
   if (page_number && page_size) {
@@ -350,8 +352,32 @@ exports.getAllUsers = catchAsyncError(async (req, res, next) => {
   }
 
   const users = await userModel.findAll(query);
-  res.status(StatusCodes.OK).json({ users });
+
+  // Get the following users for the current user
+  const userFollowing = await userModel.findAll({
+    where: {
+      id: {
+        [Op.in]: db.literal(`(
+          SELECT "following_user_id" 
+          FROM "Follow" 
+          WHERE "follower_user_id" = '${req.userId}'
+        )`),
+      },
+    },
+    attributes: ["id"],
+  });
+
+  const followingUserIds = userFollowing.map((user) => user.id);
+
+  // Update each user object to include the following field
+  const usersWithFollowing = users.map((user) => ({
+    ...user.toJSON(),
+    following: followingUserIds.includes(user.id),
+  }));
+
+  res.status(StatusCodes.OK).json({ users: usersWithFollowing });
 });
+
 
 
 exports.getProfile = catchAsyncError(async (req, res, next) => {
