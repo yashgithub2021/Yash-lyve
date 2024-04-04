@@ -563,10 +563,10 @@ exports.globalSearch = catchAsyncError(async (req, res, next) => {
 exports.getUserEvents = catchAsyncError(async (req, res, next) => {
   console.log("Get Streamed Events");
   const { page_number, page_size, name, status } = req.query;
-  const { userId } = req.params;
-
+  const { userId: otherUserId } = req.params;
+  const { userId: likedUserId } = req;
   let where = {
-    userId: userId,
+    userId: otherUserId,
   };
 
   if (name) {
@@ -605,7 +605,31 @@ exports.getUserEvents = catchAsyncError(async (req, res, next) => {
 
   const events = await eventModel.findAll(query);
 
-  res.status(StatusCodes.OK).json({ streamedEvents: events });
+  const eventsWithWishlist = await Promise.all(events.map(async (event) => {
+    const isWishlisted = await Wishlist.findOne({
+      where: { userId: likedUserId, eventId: event.id, isWishlisted: true },
+    });
+
+    const isLiked = await Wishlist.findOne({
+      where: { userId: likedUserId, eventId: event.id, liked: true },
+    });
+
+    const likesCount = await Wishlist.count({
+      where: { eventId: event.id, liked: true },
+    });
+    const dislikesCount = await Wishlist.count({
+      where: { eventId: event.id, disliked: true },
+    });
+    return {
+      ...event.toJSON(),
+      isWishlisted: !!isWishlisted,
+      isLiked: !!isLiked,
+      likes_count: likesCount,
+      dislikes_count: dislikesCount,
+    };
+  }));
+
+  res.status(StatusCodes.OK).json({ streamedEvents: eventsWithWishlist });
 });
 
 exports.getStreamedDetails = catchAsyncError(async (req, res, next) => {
