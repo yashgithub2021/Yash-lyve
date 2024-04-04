@@ -451,9 +451,9 @@ exports.getMyUpcomingEvents = catchAsyncError(async (req, res, next) => {
   const myUpcomingEvents = await eventModel.findAll({
     where: {
       userId: userId,
-      event_date: { [Op.gt]: today },
+      status: "Upcoming",
     },
-    attributes: ["id", "title", "event_date", "thumbnail"],
+    attributes: ["id", "title", "event_date", "event_time", "thumbnail"],
     order: [['event_date', 'ASC']], // Order by event date ascending
     limit: limit,
     offset: offset,
