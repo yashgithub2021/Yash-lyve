@@ -13,13 +13,16 @@ const {
   getGenres,
   getMyUpcomingEvents,
   globalSearch,
-  getStreamedEvents,
-  getStreamedDetails
+  getUserEvents,
+  getStreamedDetails,
+  updateEvent
 } = require("./event.controller");
 
 router.post("/create", upload.single("thumbnail"), auth, createEvent);
 
 router.delete("/delete/:eventId", auth, deleteEvent);
+
+router.put("/update/:eventId", upload.single("thumbnail"), auth, updateEvent);
 
 router.get("/get-events", auth, getEvents);
 
@@ -31,7 +34,7 @@ router.get("/global-search", auth, globalSearch);
 
 router.get("/my-upcoming-events", auth, getMyUpcomingEvents);
 
-router.get("/streamed-events/:userId", auth, getStreamedEvents);
+router.get("/user-events/:userId", auth, getUserEvents);
 
 router.get("/stream-details/:eventId", auth, getStreamedDetails);
 

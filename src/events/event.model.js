@@ -101,11 +101,12 @@ const eventModel = db.define(
     },
     status: {
       type: DataTypes.ENUM("Upcoming", "Live", "Completed"),
+      defaultValue: "Upcoming", // Default value for status
       allowNull: false,
       validate: {
         isIn: {
           args: [["Upcoming", "Live", "Completed"]],
-          msg: "Status must be one of: Upcoming, Live or Completed",
+          msg: "Status must be one of: Upcoming, Live, or Completed",
         },
       },
     },

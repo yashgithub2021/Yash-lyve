@@ -75,6 +75,50 @@ exports.deleteEvent = catchAsyncError(async (req, res, next) => {
     .json({ success: true, message: "Event deleted Successfully" });
 });
 
+exports.updateEvent = catchAsyncError(async (req, res, next) => {
+  const { eventId } = req.params;
+  const { userId } = req;
+  const imageFile = req.file;
+
+  let event = await eventModel.findByPk(eventId);
+
+  if (!event) {
+    return res.status(StatusCodes.NOT_FOUND).json({ message: "Event not found" });
+  }
+
+  // Check if the current user is the creator of the event
+  if (event.userId !== userId) {
+    return res.status(StatusCodes.FORBIDDEN).json({ message: "You are not authorized to update this event" });
+  }
+
+  // Update event fields
+  let updateData = {};
+
+  // If there's an image file, upload to S3 and update the thumbnail
+  if (imageFile) {
+    const imageUrl = await s3Uploadv2(imageFile);
+    updateData.thumbnail = imageUrl.Location;
+  }
+
+  // Example: Update other fields
+  // You can add more fields to update as needed
+  const { title, host, event_date, event_time, spots, entry_fee, status, event_duration } = req.body;
+
+  if (title) updateData.title = title;
+  if (host) updateData.host = host;
+  if (event_date) updateData.event_date = event_date;
+  if (event_time) updateData.event_time = event_time;
+  if (spots) updateData.spots = spots;
+  if (entry_fee) updateData.entry_fee = entry_fee;
+  if (status) updateData.status = status;
+  if (event_duration) updateData.event_duration = event_duration;
+
+  // Update the event
+  await event.update(updateData);
+
+  res.status(StatusCodes.OK).json({ success: true, message: "Event updated successfully", event });
+})
+
 exports.createGenre = catchAsyncError(async (req, res, next) => {
   console.log("Create Genre", req.body);
   const thumbnailFile = req.file;
@@ -303,7 +347,7 @@ exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
         [Op.in]: db.literal(`(
           SELECT "following_user_id" 
           FROM "Follow" 
-          WHERE "follower_user_id" = ${userId}
+          WHERE "follower_user_id" = '${userId}'
         )`),
       },
     },
@@ -494,7 +538,7 @@ exports.globalSearch = catchAsyncError(async (req, res, next) => {
         [Op.in]: db.literal(`(
           SELECT "following_user_id" 
           FROM "Follow" 
-          WHERE "follower_user_id" = ${userId}
+          WHERE "follower_user_id" = '${userId}'
         )`)
       },
     },
@@ -516,23 +560,25 @@ exports.globalSearch = catchAsyncError(async (req, res, next) => {
 
 });
 
-exports.getStreamedEvents = catchAsyncError(async (req, res, next) => {
+exports.getUserEvents = catchAsyncError(async (req, res, next) => {
   console.log("Get Streamed Events");
-  const { page_number, page_size, name } = req.query;
+  const { page_number, page_size, name, status } = req.query;
   const { userId } = req.params;
 
   let where = {
     userId: userId,
-    status: "Completed",
   };
 
   if (name) {
     where.title = { [Op.iLike]: `%${name}%` };
   }
 
+  if (status) {
+    where.status = status
+  }
+
   const query = {
     where,
-    attributes: ["id", "title", "thumbnail"],
     include: [
       {
         model: genreModel,

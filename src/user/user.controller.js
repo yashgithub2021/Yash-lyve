@@ -358,7 +358,7 @@ exports.getUserProfile = catchAsyncError(async (req, res, next) => {
         [Op.in]: db.literal(`(
           SELECT "following_user_id" 
           FROM "Follow" 
-          WHERE "follower_user_id" = ${req.userId}
+          WHERE "follower_user_id" = '${req.userId}'
         )`),
       },
     },
@@ -371,7 +371,7 @@ exports.getUserProfile = catchAsyncError(async (req, res, next) => {
         [Op.in]: db.literal(`(
           SELECT "following_user_id" 
           FROM "Follow" 
-          WHERE "follower_user_id" = ${userId}
+          WHERE "follower_user_id" = '${userId}'
         )`),
       },
     },
@@ -384,7 +384,7 @@ exports.getUserProfile = catchAsyncError(async (req, res, next) => {
         [Op.in]: db.literal(`(
           SELECT "follower_user_id" 
           FROM "Follow" 
-          WHERE "following_user_id" = ${userId}
+          WHERE "following_user_id" = '${userId}'
         )`),
       },
     },
@@ -553,7 +553,7 @@ exports.getCreatorFollowers = catchAsyncError(async (req, res, next) => {
         [Op.in]: db.literal(`(
           SELECT "follower_user_id" 
           FROM "Follow" 
-          WHERE "following_user_id" = ${userId}
+          WHERE "following_user_id" = '${userId}'
         )`),
       },
       username: {
@@ -566,7 +566,7 @@ exports.getCreatorFollowers = catchAsyncError(async (req, res, next) => {
         [Op.in]: db.literal(`(
           SELECT "follower_user_id" 
           FROM "Follow" 
-          WHERE "following_user_id" = ${userId}
+          WHERE "following_user_id" = '${userId}'
         )`),
       },
     };
@@ -605,7 +605,7 @@ exports.getCreatorFollowing = catchAsyncError(async (req, res, next) => {
         [Op.in]: db.literal(`(
           SELECT "following_user_id" 
           FROM "Follow" 
-          WHERE "follower_user_id" = ${userId}
+          WHERE "follower_user_id" = '${userId}'
         )`),
       },
       username: {
@@ -618,7 +618,7 @@ exports.getCreatorFollowing = catchAsyncError(async (req, res, next) => {
         [Op.in]: db.literal(`(
           SELECT "following_user_id" 
           FROM "Follow" 
-          WHERE "follower_user_id" = ${userId}
+          WHERE "follower_user_id" = '${userId}'
         )`),
       },
     };
@@ -657,7 +657,7 @@ exports.getSuggestedUsers = catchAsyncError(async (req, res, next) => {
         [Op.in]: db.literal(`(
           SELECT "following_user_id" 
           FROM "Follow" 
-          WHERE "follower_user_id" = ${userId}
+          WHERE "follower_user_id" = '${userId}'
         )`)
       },
     },
