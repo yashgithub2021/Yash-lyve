@@ -54,8 +54,8 @@ const storeOTP = async ({ otp, userId }) => {
   }
 }
 
-const createNotification = async (userId, text, title) => {
-  await notificationModel.create({ userId, text, title });
+const createNotification = async (userId, text, title, userAvatar) => {
+  await notificationModel.create({ userId, text, title, userAvatar });
   console.log("Notification created successfully");
 };
 
@@ -321,6 +321,39 @@ exports.updatePassword = catchAsyncError(async (req, res, next) => {
   res.status(StatusCodes.OK).json({ message: "Password Updated Successfully" });
 });
 
+exports.getAllUsers = catchAsyncError(async (req, res, next) => {
+  console.log("Admin Get All users");
+  const { page_number, page_size, search_query } = req.query;
+
+  let where = {
+    role: "User"
+  };
+
+  if (search_query) {
+    where[Op.or] = [
+      { username: { [Op.iLike]: `%${search_query}%` } },
+      { email: { [Op.iLike]: `%${search_query}%` } }
+    ];
+  }
+
+  const query = {
+    where
+  };
+
+  if (page_number && page_size) {
+    const currentPage = parseInt(page_number, 10) || 1;
+    const limit = parseInt(page_size, 10) || 10;
+    const offset = (currentPage - 1) * limit;
+
+    query.offset = offset;
+    query.limit = limit;
+  }
+
+  const users = await userModel.findAll(query);
+  res.status(StatusCodes.OK).json({ users });
+});
+
+
 exports.getProfile = catchAsyncError(async (req, res, next) => {
   console.log("User profile", req.userId);
 
@@ -490,7 +523,7 @@ exports.followCreator = catchAsyncError(async (req, res, next) => {
   await currUser.addFollowing(targetCreator);
 
   const message = `${currUser.username} started following you.`;
-  await createNotification(targetCreator.id, message, "follow");
+  await createNotification(targetCreator.id, message, "follow", currUser.avatar);
 
   res
     .status(StatusCodes.CREATED)

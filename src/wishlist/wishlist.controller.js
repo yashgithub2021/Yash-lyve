@@ -6,8 +6,8 @@ const { userModel } = require("../user");
 const { StatusCodes } = require("http-status-codes");
 
 
-const createNotification = async (userId, text, title) => {
-    await notificationModel.create({ userId, text, title });
+const createNotification = async (userId, text, title, userAvatar) => {
+    await notificationModel.create({ userId, text, title, userAvatar });
     console.log("Notification created successfully");
 };
 
@@ -125,7 +125,7 @@ exports.likeEvent = catchAsyncError(async (req, res) => {
 
     const eventCreatorId = event.userId;
     const message = `${user.username} liked your event: ${event.title}`;
-    await createNotification(eventCreatorId, message, "like");
+    await createNotification(eventCreatorId, message, "like", user.avatar);
 
     res.status(StatusCodes.OK).json({ success: true, message: "Like added to event" });
 });

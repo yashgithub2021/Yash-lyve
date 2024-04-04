@@ -17,7 +17,8 @@ const {
   resendOTP,
   getCreatorFollowing,
   getSuggestedUsers,
-  getUserProfile
+  getUserProfile,
+  getAllUsers
 } = require("./user.controller");
 const { user } = require("../../middlewares/validate");
 const { upload } = require("../../utils/s3");
@@ -32,13 +33,14 @@ router.put("/change-password", user.updatePassword, auth, updatePassword);
 router.put("/reset-password", user.updatePassword, updatePassword);
 router.route("/profile").get(auth, getProfile).put(upload.single("image"), auth, updateProfile);
 router.delete("/delete", auth, deleteUser);
+router.get("/user-profile/:userId", auth, getUserProfile);
+router.get("/suggested-users", auth, getSuggestedUsers);
+router.get("/get-all-users", auth, getAllUsers);
 
 //=================================Follow Stuff =====================================================
 router.post("/follow/:creatorId", auth, followCreator);
 router.delete("/unfollow/:creatorId", auth, unfollowCreator);
 router.get("/followers", auth, getCreatorFollowers);
 router.get("/following", auth, getCreatorFollowing);
-router.get("/suggested-users", auth, getSuggestedUsers);
-router.get("/user-profile/:userId", auth, getUserProfile);
 
 module.exports = router;

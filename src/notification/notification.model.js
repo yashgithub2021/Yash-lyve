@@ -29,6 +29,10 @@ const notificationModel = db.define(
       type: DataTypes.DATE,
       defaultValue: Date.now
     },
+    userAvatar: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     seen: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,

@@ -163,6 +163,9 @@ exports.getRecommendedEvents = catchAsyncError(async (req, res, next) => {
     const isLiked = await Wishlist.findOne({
       where: { userId, eventId: event.id, liked: true },
     });
+    const isDisLiked = await Wishlist.findOne({
+      where: { userId, eventId: event.id, disliked: true },
+    });
 
     const likesCount = await Wishlist.count({
       where: { eventId: event.id, liked: true },
@@ -175,6 +178,7 @@ exports.getRecommendedEvents = catchAsyncError(async (req, res, next) => {
       ...event.toJSON(),
       isWishlisted: !!isWishlisted,
       isLiked: !!isLiked,
+      isDisLiked: !!isDisLiked,
       likes_count: likesCount,
       dislikes_count: dislikesCount,
     };
@@ -273,6 +277,9 @@ exports.getEvents = catchAsyncError(async (req, res, next) => {
     const isLiked = await Wishlist.findOne({
       where: { userId, eventId: event.id, liked: true },
     });
+    const isDisLiked = await Wishlist.findOne({
+      where: { userId, eventId: event.id, disliked: true },
+    });
 
     const likesCount = await Wishlist.count({
       where: { eventId: event.id, liked: true },
@@ -285,6 +292,7 @@ exports.getEvents = catchAsyncError(async (req, res, next) => {
       ...event.toJSON(),
       isWishlisted: !!isWishlisted,
       isLiked: !!isLiked,
+      isDisLiked: !!isDisLiked,
       likes_count: likesCount,
       dislikes_count: dislikesCount,
     };
@@ -393,6 +401,9 @@ exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
     const isLiked = await Wishlist.findOne({
       where: { userId, eventId: event.id, liked: true },
     });
+    const isDisLiked = await Wishlist.findOne({
+      where: { userId, eventId: event.id, disliked: true },
+    });
 
     const likesCount = await Wishlist.count({
       where: { eventId: event.id, liked: true },
@@ -405,6 +416,7 @@ exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
       ...event.toJSON(),
       isWishlisted: !!isWishlisted, // Convert to boolean
       isLiked: !!isLiked,
+      isDisLiked: !!isDisLiked,
       likes_count: likesCount,
       dislikes_count: dislikesCount,
     };
@@ -516,6 +528,9 @@ exports.globalSearch = catchAsyncError(async (req, res, next) => {
     const isLiked = await Wishlist.findOne({
       where: { userId, eventId: event.id, liked: true },
     });
+    const isDisLiked = await Wishlist.findOne({
+      where: { userId, eventId: event.id, disliked: true },
+    });
 
     const likesCount = await Wishlist.count({
       where: { eventId: event.id, liked: true },
@@ -527,6 +542,7 @@ exports.globalSearch = catchAsyncError(async (req, res, next) => {
       ...event.toJSON(),
       isWishlisted: !!isWishlisted,
       isLiked: !!isLiked,
+      isDisLiked: !!isDisLiked,
       likes_count: likesCount,
       dislikes_count: dislikesCount,
     };
@@ -613,6 +629,9 @@ exports.getUserEvents = catchAsyncError(async (req, res, next) => {
     const isLiked = await Wishlist.findOne({
       where: { userId: likedUserId, eventId: event.id, liked: true },
     });
+    const isDisLiked = await Wishlist.findOne({
+      where: { userId: likedUserId, eventId: event.id, disliked: true },
+    });
 
     const likesCount = await Wishlist.count({
       where: { eventId: event.id, liked: true },
@@ -624,6 +643,7 @@ exports.getUserEvents = catchAsyncError(async (req, res, next) => {
       ...event.toJSON(),
       isWishlisted: !!isWishlisted,
       isLiked: !!isLiked,
+      isDisLiked: !!isDisLiked,
       likes_count: likesCount,
       dislikes_count: dislikesCount,
     };
