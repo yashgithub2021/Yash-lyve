@@ -638,7 +638,29 @@ exports.getCreatorFollowers = catchAsyncError(async (req, res, next) => {
     attributes: ["id", "username", "avatar"],
   });
 
-  res.status(StatusCodes.OK).json({ followers });
+  // Get the following users for the current user
+  const userFollowing = await userModel.findAll({
+    where: {
+      id: {
+        [Op.in]: db.literal(`(
+          SELECT "following_user_id" 
+          FROM "Follow" 
+          WHERE "follower_user_id" = '${userId}'
+        )`),
+      },
+    },
+    attributes: ["id"],
+  });
+
+  const followingUserIds = userFollowing.map((user) => user.id);
+
+  // Update each follower object to include the following field
+  const followersWithFollowing = followers.map((follower) => ({
+    ...follower.toJSON(),
+    following: followingUserIds.includes(follower.id),
+  }));
+
+  res.status(StatusCodes.OK).json({ followers: followersWithFollowing });
 });
 
 
@@ -690,8 +712,31 @@ exports.getCreatorFollowing = catchAsyncError(async (req, res, next) => {
     attributes: ["id", "username", "avatar"],
   });
 
-  res.status(StatusCodes.OK).json({ followings });
+  // Get the following users for the current user
+  const userFollowing = await userModel.findAll({
+    where: {
+      id: {
+        [Op.in]: db.literal(`(
+          SELECT "following_user_id" 
+          FROM "Follow" 
+          WHERE "follower_user_id" = '${userId}'
+        )`),
+      },
+    },
+    attributes: ["id"],
+  });
+
+  const followingUserIds = userFollowing.map((user) => user.id);
+
+  // Update each following object to include the following field
+  const followingsWithFollowing = followings.map((following) => ({
+    ...following.toJSON(),
+    following: followingUserIds.includes(following.id),
+  }));
+
+  res.status(StatusCodes.OK).json({ followings: followingsWithFollowing });
 });
+
 
 exports.getSuggestedUsers = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
