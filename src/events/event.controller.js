@@ -502,6 +502,7 @@ exports.globalSearch = catchAsyncError(async (req, res, next) => {
   const events = await eventModel.findAll({
     where: {
       title: { [Op.iLike]: `%${search_query}%` },
+      status: "Upcoming" || "Live"
     },
     ...query,
     attributes: ['id', 'title', 'event_date', "thumbnail", "host", "status",],
