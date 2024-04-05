@@ -6,7 +6,7 @@ const generateOTP = require("../../utils/otpGenerator");
 const { StatusCodes } = require("http-status-codes");
 const { s3Uploadv2 } = require("../../utils/s3");
 const { Op } = require("sequelize");
-const { db } = require("../../config/database")
+const { db } = require("../../config/database");
 const { eventModel } = require("../events/event.model");
 const { notificationModel } = require("../notification");
 
@@ -46,13 +46,14 @@ const storeOTP = async ({ otp, userId }) => {
   const otpInstance = await otpModel.findOne({ where: { userId } });
   if (!otpInstance) {
     await otpModel.create({
-      otp, userId
+      otp,
+      userId,
     });
   } else {
     otpInstance.otp = otp;
     await otpInstance.save();
   }
-}
+};
 
 const createNotification = async (userId, text, title, userAvatar) => {
   await notificationModel.create({ userId, text, title, userAvatar });
@@ -74,16 +75,16 @@ exports.register = catchAsyncError(async (req, res, next) => {
   } else {
     user = imageUrl
       ? await userModel.create({
-        ...req.body,
-        role: "User",
-        dob: new Date(dob),
-        avatar: imageUrl.Location,
-      })
+          ...req.body,
+          role: "User",
+          dob: new Date(dob),
+          avatar: imageUrl.Location,
+        })
       : await userModel.create({
-        ...req.body,
-        role: "User",
-        dob: new Date(dob),
-      });
+          ...req.body,
+          role: "User",
+          dob: new Date(dob),
+        });
   }
 
   const otp = generateOTP();
@@ -91,7 +92,7 @@ exports.register = catchAsyncError(async (req, res, next) => {
   await storeOTP({ otp, userId: user.id });
 
   try {
-    const message = getMsg(otp)
+    const message = getMsg(otp);
     await sendEmail({
       email: user.email,
       subject: "Verify Registration OTP",
@@ -162,7 +163,9 @@ exports.login = catchAsyncError(async (req, res, next) => {
   }
 
   if (!user.isVerified) {
-    return next(new ErrorHandler("Please Verify OTP.", StatusCodes.UNAUTHORIZED));
+    return next(
+      new ErrorHandler("Please Verify OTP.", StatusCodes.UNAUTHORIZED)
+    );
   }
 
   const isMatch = await user.comparePassword(password);
@@ -186,7 +189,9 @@ exports.resendOTP = catchAsyncError(async (req, res, next) => {
 
   const user = await userModel.findOne({ where: { email } });
   if (!user) {
-    return next(new ErrorHandler("Please register or User doesn't exist.", 400));
+    return next(
+      new ErrorHandler("Please register or User doesn't exist.", 400)
+    );
   }
 
   const otp = generateOTP();
@@ -327,19 +332,19 @@ exports.getAllUsers = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
   let where = {
     role: "User",
-    id: { [Op.not]: userId }
+    id: { [Op.not]: userId },
   };
 
   if (search_query) {
     where[Op.or] = [
       { username: { [Op.iLike]: `%${search_query}%` } },
-      { email: { [Op.iLike]: `%${search_query}%` } }
+      { email: { [Op.iLike]: `%${search_query}%` } },
     ];
   }
 
   const query = {
     where,
-    attributes: ["id", "username", "avatar"]
+    attributes: ["id", "username", "avatar"],
   };
 
   if (page_number && page_size) {
@@ -378,15 +383,22 @@ exports.getAllUsers = catchAsyncError(async (req, res, next) => {
   res.status(StatusCodes.OK).json({ users: usersWithFollowing });
 });
 
-
-
 exports.getProfile = catchAsyncError(async (req, res, next) => {
   console.log("User profile", req.userId);
 
   const { userId } = req;
 
   const user = await userModel.findByPk(userId, {
-    attributes: ["id", "avatar", "username", "email", "mobile_no", "dob", "gender", "country"], // Exclude 'role' attribute
+    attributes: [
+      "id",
+      "avatar",
+      "username",
+      "email",
+      "mobile_no",
+      "dob",
+      "gender",
+      "country",
+    ], // Exclude 'role' attribute
   });
 
   if (!user)
@@ -394,7 +406,6 @@ exports.getProfile = catchAsyncError(async (req, res, next) => {
 
   res.status(StatusCodes.OK).json({ user });
 });
-
 
 exports.getUserProfile = catchAsyncError(async (req, res, next) => {
   console.log("User Profile by Id", req.params);
@@ -407,7 +418,9 @@ exports.getUserProfile = catchAsyncError(async (req, res, next) => {
   });
 
   if (!user) {
-    return res.status(StatusCodes.NOT_FOUND).json({ message: "User not found" });
+    return res
+      .status(StatusCodes.NOT_FOUND)
+      .json({ message: "User not found" });
   }
 
   // Find the current user's following list
@@ -435,7 +448,7 @@ exports.getUserProfile = catchAsyncError(async (req, res, next) => {
       },
     },
     distinct: true,
-    col: 'id',
+    col: "id",
   });
   const follower_count = await userModel.count({
     where: {
@@ -448,10 +461,10 @@ exports.getUserProfile = catchAsyncError(async (req, res, next) => {
       },
     },
     distinct: true,
-    col: 'id',
+    col: "id",
   });
-  console.log("Following Count", following_count)
-  console.log("Follower Count", follower_count)
+  console.log("Following Count", following_count);
+  console.log("Follower Count", follower_count);
 
   const followingUserIds = userFollowing.map((user) => user.id);
 
@@ -467,25 +480,23 @@ exports.getUserProfile = catchAsyncError(async (req, res, next) => {
     following: followingUserIds.includes(userId),
     following_count: following_count,
     follower_count: follower_count,
-    streamed_count: streamed
+    streamed_count: streamed,
   };
 
   res.status(StatusCodes.OK).json({ user: userProfile });
 });
 
-
-
 exports.updateProfile = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
-  console.log("Req Body", req.body)
-  const imageFile = req.file
+  console.log("Req Body", req.body);
+  const imageFile = req.file;
 
   if (imageFile) {
     const imageUrl = await s3Uploadv2(imageFile);
-    req.body.avatar = imageUrl.Location
+    req.body.avatar = imageUrl.Location;
   }
   const updateData = userModel.getUpdateFields(req.body);
-  console.log(updateData)
+  console.log(updateData);
   if (Object.keys(updateData).length === 0) {
     return next(
       new ErrorHandler(
@@ -529,6 +540,12 @@ exports.followCreator = catchAsyncError(async (req, res, next) => {
 
   const targetCreator = await userModel.findByPk(creatorId);
 
+  if (userId === creatorId) {
+    return next(
+      new ErrorHandler("you can not follow yourself", StatusCodes.FORBIDDEN)
+    );
+  }
+
   if (!targetCreator) {
     return next(
       new ErrorHandler("User with given id not found", StatusCodes.NOT_FOUND)
@@ -539,17 +556,19 @@ exports.followCreator = catchAsyncError(async (req, res, next) => {
 
   if (isAlreadyFollowing) {
     return next(
-      new ErrorHandler(
-        "Already following this user",
-        StatusCodes.BAD_REQUEST
-      )
+      new ErrorHandler("Already following this user", StatusCodes.BAD_REQUEST)
     );
   }
 
   await currUser.addFollowing(targetCreator);
 
   const message = `${currUser.username} started following you.`;
-  await createNotification(targetCreator.id, message, "follow", currUser.avatar);
+  await createNotification(
+    targetCreator.id,
+    message,
+    "follow",
+    currUser.avatar
+  );
 
   res
     .status(StatusCodes.CREATED)
@@ -567,6 +586,12 @@ exports.unfollowCreator = catchAsyncError(async (req, res, next) => {
 
   const currUser = await userModel.findByPk(userId);
   const targetCreator = await userModel.findByPk(creatorId);
+
+  if (userId === creatorId) {
+    return next(
+      new ErrorHandler("you can not unfollow yourself", StatusCodes.FORBIDDEN)
+    );
+  }
 
   if (!targetCreator) {
     return next(
@@ -663,9 +688,6 @@ exports.getCreatorFollowers = catchAsyncError(async (req, res, next) => {
   res.status(StatusCodes.OK).json({ followers: followersWithFollowing });
 });
 
-
-
-
 exports.getCreatorFollowing = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
   const { page_number, page_size, search_query } = req.query;
@@ -737,13 +759,12 @@ exports.getCreatorFollowing = catchAsyncError(async (req, res, next) => {
   res.status(StatusCodes.OK).json({ followings: followingsWithFollowing });
 });
 
-
 exports.getSuggestedUsers = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
   let query = {
     where: {
       id: { [Op.ne]: userId }, // Exclude current user
-      role: "User"
+      role: "User",
     },
     include: [
       {
@@ -762,10 +783,10 @@ exports.getSuggestedUsers = catchAsyncError(async (req, res, next) => {
           SELECT "following_user_id" 
           FROM "Follow" 
           WHERE "follower_user_id" = '${userId}'
-        )`)
+        )`),
       },
     },
-  })
+  });
 
   const followingUserIds = userFollowing.map((user) => user.id);
 
@@ -782,4 +803,3 @@ exports.getSuggestedUsers = catchAsyncError(async (req, res, next) => {
 
   res.status(200).json({ success: true, suggestedUsers });
 });
-
