@@ -1,4 +1,5 @@
 const { userRoute, userModel } = require("./user");
+const { bankRoute } = require("./bank")
 const { eventModel, eventRouter } = require("./events");
 const { adminRouter } = require("./admin");
 const { wishlistRoute, Wishlist } = require("./wishlist");
@@ -36,4 +37,4 @@ const insertQuery = async () => {
 
 // (async () => { await insertQuery(); })();
 
-module.exports = { userModel, userRoute, eventModel, eventRouter, adminRouter, wishlistRoute, contentRoute, notificationRoute };
+module.exports = { userModel, userRoute, eventModel, eventRouter, adminRouter, wishlistRoute, contentRoute, notificationRoute, bankRoute };
