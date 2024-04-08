@@ -15,7 +15,7 @@ const {
   globalSearch,
   getUserEvents,
   getStreamedDetails,
-  updateEvent
+  updateEvent,
 } = require("./event.controller");
 
 router.post("/create", upload.single("thumbnail"), auth, createEvent);
@@ -39,5 +39,7 @@ router.get("/user-events/:userId", auth, getUserEvents);
 router.get("/stream-details/:eventId", auth, getStreamedDetails);
 
 router.route("/recommended-events").get(auth, getRecommendedEvents);
+
+router.get("/get-upcoming-events", auth, getUpcomingEvents);
 
 module.exports = router;
