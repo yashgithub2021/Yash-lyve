@@ -52,6 +52,7 @@ const userModel = db.define(
             where: {
               email: value,
               deletedAt: null,
+              isVerified: true,
             },
           });
           if (existingUser) {
@@ -91,10 +92,11 @@ const userModel = db.define(
             where: {
               mobile_no: value,
               deletedAt: null,
+              isVerified: true,
             },
           });
           if (existingUser) {
-            throw new Error("Email already in use!");
+            throw new Error("Mobile number already in use!");
           }
         },
       },
