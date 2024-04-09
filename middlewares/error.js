@@ -30,9 +30,29 @@ module.exports = (err, req, res, next) => {
     err = new ErrorHandler(msg, StatusCodes.INTERNAL_SERVER_ERROR);
   }
 
+  // if (err.name === "SequelizeValidationError") {
+  //   let errors = Object.values(err.errors).map((el) => {
+  //     console.log({ el });
+  //     let e;
+  //     if (
+  //       el.validatorKey === "notEmpty" ||
+  //       el.validatorKey === "notNull" ||
+  //       el.validatorKey === "is_null"
+  //     )
+  //       e = el.message;
+  //     else e = el.message;
+
+  //     const er = JSON.stringify({ [el.path]: e });
+  //     console.log(er);
+  //     return er;
+  //   });
+
+  //   const msg = `Validation Failed. ${errors}`;
+  //   console.log(msg);
+  //   err = new ErrorHandler(msg, StatusCodes.CONFLICT);
+  // }
   if (err.name === "SequelizeValidationError") {
     let errors = Object.values(err.errors).map((el) => {
-      console.log({ el });
       let e;
       if (
         el.validatorKey === "notEmpty" ||
@@ -43,12 +63,17 @@ module.exports = (err, req, res, next) => {
       else e = el.message;
 
       const er = JSON.stringify({ [el.path]: e });
-      console.log(er);
       return er;
     });
 
-    const msg = `Validation Failed. ${errors}`;
-    err = new ErrorHandler(msg, StatusCodes.CONFLICT);
+    console.log("eeee", errors);
+    errors.map((err) => {
+      return console.log(err);
+    });
+    // const errorMsg = errors.join(", ").replace(/\\/g, "");
+    // console.log("errorMsg", errorMsg);
+    // const msg = `Validation Failed. ${errorMsg}`;
+    // err = new ErrorHandler(msg, StatusCodes.CONFLICT);
   }
 
   // sequelize duplicate key error

@@ -10,7 +10,7 @@ class Validate {
         "mobile_no",
         "country",
         "dob",
-        "gender"
+        "gender",
       ],
       login: ["email", "password"],
       updatePassword: ["password", "confirmPassword"],
@@ -96,7 +96,7 @@ class Validate {
       const { password, confirmPassword } = req.body;
 
       if (password !== confirmPassword)
-        return `Password and ConfirmPassword must be same`;
+        return `Password and Confirm Password must be same`;
     };
   }
 

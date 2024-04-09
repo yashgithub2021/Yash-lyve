@@ -62,7 +62,7 @@ const createNotification = async (userId, text, title, userAvatar) => {
 
 exports.register = catchAsyncError(async (req, res, next) => {
   console.log("register", req.body);
-  const { email, dob } = req.body;
+  const { email, dob, mobile_no } = req.body;
   const imageFile = req.file;
   const imageUrl = imageFile && (await s3Uploadv2(imageFile));
   let user;
@@ -111,9 +111,7 @@ exports.register = catchAsyncError(async (req, res, next) => {
 exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
   const { otp, email } = req.body;
   if (!otp || !email) {
-    return next(
-      new ErrorHandler("Missing OTP or email", StatusCodes.BAD_REQUEST)
-    );
+    return next(new ErrorHandler("Missing OTP", StatusCodes.BAD_REQUEST));
   }
   const otpInstance = await otpModel.findOne({ where: { otp } });
   const user = await userModel.findOne({ where: { email } });
@@ -298,6 +296,13 @@ exports.updatePassword = catchAsyncError(async (req, res, next) => {
   }
 
   const { password, oldPassword } = req.body;
+
+  if (password === oldPassword) {
+    return next(
+      new ErrorHandler("New password must not be same as old password")
+    );
+  }
+
   if (req.userId && !req.body.oldPassword) {
     return next(
       new ErrorHandler(
@@ -310,6 +315,7 @@ exports.updatePassword = catchAsyncError(async (req, res, next) => {
   if (oldPassword) {
     console.log("old Password", oldPassword);
     const isMatch = await user.comparePassword(oldPassword);
+
     if (!isMatch) {
       return next(
         new ErrorHandler(
