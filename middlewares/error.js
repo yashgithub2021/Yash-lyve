@@ -2,7 +2,7 @@ const multer = require("multer");
 const ErrorHandler = require("../utils/errorHandler");
 const { StatusCodes } = require("http-status-codes");
 module.exports = (err, req, res, next) => {
-  console.log({ err });
+  console.error({ err });
   err.message = err.message || "Internal Server Error";
 
   if (err instanceof multer.MulterError) {
@@ -30,77 +30,42 @@ module.exports = (err, req, res, next) => {
     err = new ErrorHandler(msg, StatusCodes.INTERNAL_SERVER_ERROR);
   }
 
-  // if (err.name === "SequelizeValidationError") {
-  //   let errors = Object.values(err.errors).map((el) => {
-  //     console.log({ el });
-  //     let e;
-  //     if (
-  //       el.validatorKey === "notEmpty" ||
-  //       el.validatorKey === "notNull" ||
-  //       el.validatorKey === "is_null"
-  //     )
-  //       e = el.message;
-  //     else e = el.message;
-
-  //     const er = JSON.stringify({ [el.path]: e });
-  //     console.log(er);
-  //     return er;
-  //   });
-
-  //   const msg = `Validation Failed. ${errors}`;
-  //   console.log(msg);
-  //   err = new ErrorHandler(msg, StatusCodes.CONFLICT);
-  // }
   if (err.name === "SequelizeValidationError") {
-    let errors = Object.values(err.errors).map((el) => {
-      let e;
+    let errors = err.errors.map((el) => {
+      let message = el.message;
       if (
         el.validatorKey === "notEmpty" ||
         el.validatorKey === "notNull" ||
         el.validatorKey === "is_null"
-      )
-        e = el.message;
-      else e = el.message;
-
-      const er = JSON.stringify({ [el.path]: e });
-      return er;
-    });
-
-    console.log("eeee", errors);
-    errors.map((err) => {
-      return console.log(err);
-    });
-    // const errorMsg = errors.join(", ").replace(/\\/g, "");
-    // console.log("errorMsg", errorMsg);
-    // const msg = `Validation Failed. ${errorMsg}`;
-    // err = new ErrorHandler(msg, StatusCodes.CONFLICT);
-  }
-
-  // sequelize duplicate key error
-  if (err.name === "SequelizeUniqueConstraintError") {
-    let errors = Object.values(err.errors).map((el) => {
-      console.log({ el });
-      if (el.path === "email") {
-        return JSON.stringify({
-          [el.path]: "Email is already registered.",
-        });
+      ) {
+        message = `${el.path} ${el.message}`;
       }
-
-      return JSON.stringify({ [el.path]: el.message });
+      return message;
     });
 
-    err = new ErrorHandler(errors, StatusCodes.CONFLICT);
+    const msg = errors.join(", ");
+    err = new ErrorHandler(msg, StatusCodes.CONFLICT);
   }
 
-  // wrong jwt error
+  if (err.name === "SequelizeUniqueConstraintError") {
+    let errors = err.errors.map((el) => {
+      if (el.path === "email") {
+        return "Email is already registered.";
+      }
+      return el.message;
+    });
+
+    err = new ErrorHandler(errors.join(", "), StatusCodes.CONFLICT);
+  }
+
+  // JWT errors
   if (err.name === "JsonWebTokenError") {
-    const message = `Json Web Token is invalid, try again`;
+    const message = `Invalid token, please try again`;
     err = new ErrorHandler(message, StatusCodes.UNAUTHORIZED);
   }
 
-  // JWT expire error
   if (err.name === "TokenExpiredError") {
-    const message = `Json Web Token is expired, try again`;
+    const message = `Token has expired, please login again`;
     err = new ErrorHandler(message, StatusCodes.UNAUTHORIZED);
   }
 
