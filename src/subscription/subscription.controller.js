@@ -66,7 +66,7 @@ exports.getSubscription = catchAsyncError(async (req, res, next) => {
     include: [
       {
         model: eventModel,
-        as: "sub", // Use the correct alias for the event association
+        as: "subscribed_event", // Use the correct alias for the event association
         attributes: ["id", "title", "thumbnail"],
       },
       {

@@ -24,11 +24,11 @@ userModel.hasMany(notificationModel, {
 });
 notificationModel.belongsTo(userModel, { foreignKey: "userId", as: "user" });
 
-userModel.hasMany(Subscription, { foreignKey: "userId", as: "sub" });
-Subscription.belongsTo(userModel, { foreignKey: "userId" });
+userModel.hasMany(Subscription, { foreignKey: "userId", as: "user" });
+Subscription.belongsTo(userModel, { foreignKey: "userId", as: "subscriber" });
 
-eventModel.hasMany(Subscription, { foreignKey: "eventId", as: "subscriber" });
-Subscription.belongsTo(eventModel, { foreignKey: "eventId" });
+eventModel.hasMany(Subscription, { foreignKey: "eventId", as: "event" });
+Subscription.belongsTo(eventModel, { foreignKey: "eventId", as: "subscribed_event" });
 
 const insertQuery = async () => {
   // create admin

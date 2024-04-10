@@ -1,7 +1,10 @@
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
 
-const createCheckout = async () => {
+const createCheckout = async (event, email) => {
+  console.log("Datavalues", event.dataValues)
+  const amount = event.entry_fee
+  const title = event.title
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -10,9 +13,9 @@ const createCheckout = async () => {
           price_data: {
             currency: "usd",
             product_data: {
-              name: "T-shirt",
+              name: title,
             },
-            unit_amount: 2000,
+            unit_amount: amount * 100,
           },
           quantity: 1,
         },
@@ -20,7 +23,7 @@ const createCheckout = async () => {
       mode: "payment",
       success_url: `http://localhost:5000`,
       cancel_url: `http://localhost:5000`,
-      customer_email: "kuldeep10panwar@gmail.com",
+      customer_email: email,
     });
     return { session };
   } catch (e) {
@@ -29,7 +32,7 @@ const createCheckout = async () => {
 };
 
 const captureStripePayment = async (session_id) => {
-  console.log(event_data.entry_fee);
+  // console.log(event_data.entry_fee);
 
   try {
     const session = await stripe.checkout.sessions.retrieve(session_id);
