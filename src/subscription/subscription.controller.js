@@ -3,56 +3,274 @@ const ErrorHandler = require("../../utils/errorHandler");
 const { eventModel, genreModel } = require("../events/event.model");
 const { userModel } = require("../user");
 const { StatusCodes } = require("http-status-codes");
+const Subscription = require("./subscription.model");
 // const { Wishlist } = require("../wishlist/wishlist.model");
-const secret_key = process.env.STRIPE_SECRET_KEY;
-const stripe = require("stripe")(secret_key);
+// const secret_key = process.env.STRIPE_SECRET_KEY;
+// const stripe = require("stripe")(secret_key);
+const { createCheckout, captureStripePayment } = require("../../utils/stripe");
 
-exports.createSubscription = catchAsyncError(async (req, res, next) => {
-  console.log("Create subs", req.body);
-
+exports.createSession = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
   const { eventId } = req.params;
 
   const user = await userModel.findByPk(userId);
   const event = await eventModel.findByPk(eventId);
-  //   const wishlist = await Wishlist.findByPk()
 
-  if (!event || !user)
-    return next(
-      new ErrorHandler("Event or user not found", StatusCodes.NOT_FOUND)
-    );
+  if (!event)
+    return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
 
-  const subscription_fees = event.entry_fee;
+  const stripe = await createCheckout(event, user.email);
 
-  res.status(StatusCodes.CREATED).json({ event, user });
+  if (!stripe) {
+    return next(new ErrorHandler("Session not found", StatusCodes.NOT_FOUND));
+  }
+
+  res.status(StatusCodes.CREATED).json({ sessionURL: stripe });
 });
 
-// exports.deleteEvent = catchAsyncError(async (req, res, next) => {
+exports.createSubscription = catchAsyncError(async (req, res, next) => {
+  const { userId } = req;
+  const { eventId } = req.params;
+  const { sessionId } = req.params;
+
+  const user = await userModel.findByPk(userId);
+  const event = await eventModel.findByPk(eventId);
+  // //   const wishlist = await Wishlist.findByPk()
+
+  if (!event)
+    return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
+
+  // checking payment status
+  const confirmPayment = await captureStripePayment(sessionId);
+  console.log("confirmPayment", confirmPayment);
+
+  if (confirmPayment.payment_status === "unpaid") {
+    return next(
+      new ErrorHandler("Payment is not confirmed", StatusCodes.NOT_FOUND)
+    );
+  }
+
+  const subscription = await Subscription.create({
+    userId,
+    eventId,
+    status: true,
+  });
+
+  res.status(StatusCodes.CREATED).json({ subscription });
+});
+
+exports.getSubscription = catchAsyncError(async (req, res, next) => {
+  const { subscriptionId } = req.params;
+
+  const subscription = await Subscription.findByPk(subscriptionId, {
+    include: [
+      {
+        model: eventModel,
+        as: "sub", // Use the correct alias for the event association
+        attributes: ["id", "title", "thumbnail"],
+      },
+      {
+        model: userModel,
+        as: "subscriber", // Use the correct alias for the user association
+        attributes: ["id", "username", "avatar"],
+      },
+    ],
+    order: [["createdAt", "DESC"]],
+  });
+
+  if (!subscription)
+    return next(
+      new ErrorHandler("Subscription not found", StatusCodes.NOT_FOUND)
+    );
+
+  res.status(StatusCodes.OK).json({ subscription });
+});
+
+// const capturePaymentStripe = async (req, res, next) => {
 //   const {
-//     params: { eventId },
-//     userId,
-//   } = req;
+//     startDate,
+//     endDate,
+//     startTime,
+//     endTime,
+//     carId,
+//     insurance,
+//     person,
+//     luggage,
+//     fromAddress,
+//     toAddress,
+//     discount,
+//     name,
+//     email,
+//     phone,
+//   } = req.body;
+//   try {
+//     const car = await carModel.findById(carId);
+//     const price = car.price;
 
-//   const event = await eventModel.findByPk(eventId);
+//     const total = await calculateTotal(
+//       startDate,
+//       endDate,
+//       startTime,
+//       endTime,
+//       price,
+//       insurance,
+//       discount
+//     );
 
-//   // Check if event exists
-//   if (!event) {
-//     return res
-//       .status(StatusCodes.NOT_FOUND)
-//       .json({ success: false, message: "Event not found" });
+//     const session_id = req.params.orderId;
+
+//     try {
+//       const session = await stripe.checkout.sessions.retrieve(session_id);
+//       const paymentStatus = session.payment_status;
+//       if (paymentStatus) {
+//         const user = await userModel.findById(req.userId);
+//         if (user) {
+//           const booking = await bookingModel.create({
+//             car: carId,
+//             user: req.userId,
+//             pickupLocation: fromAddress,
+//             startDate: new Date(
+//               ${format(new Date(startDate), "MMMM dd, yyyy")}, ${startTime}
+//             ),
+//             dropofLocation: toAddress,
+//             endDate: new Date(
+//               ${format(new Date(endDate), "MMMM dd, yyyy")}, ${endTime}
+//             ),
+//             person: person,
+//             luggage: luggage,
+//             totalPrice: total,
+//             status:
+//               session.payment_status === "unpaid" ? "CANCELLED" : "COMPLETED",
+//             stripeOrderId: session_id,
+//             insurance: insurance,
+//           });
+
+//           // also add to transaction model
+//           const transaction = await transactionModel.create({
+//             booking: booking._id,
+//             user: req.userId,
+//             amount: total,
+//             status:
+//               session.payment_status === "unpaid" ? "CANCELLED" : "COMPLETED",
+//             transactionId: session.id,
+//           });
+
+//           await sendMail(transaction.transactionId, total, car.name);
+//           await sendUserMail(
+//             transaction.transactionId,
+//             booking,
+//             total,
+//             car.name,
+//             user.email,
+//             user.name
+//           );
+
+//           return res.status(200).json({
+//             paymentCaptured: { status: "COMPLETED" },
+//           });
+//         } else {
+//           const booking = await bookingModel.create({
+//             car: carId,
+//             name: name,
+//             email: email,
+//             phone: phone,
+//             pickupLocation: fromAddress,
+//             startDate: new Date(
+//               ${format(new Date(startDate), "MMMM dd, yyyy")}, ${startTime}
+//             ),
+//             dropofLocation: toAddress,
+//             endDate: new Date(
+//               ${format(new Date(endDate), "MMMM dd, yyyy")}, ${endTime}
+//             ),
+//             person: person,
+//             luggage: luggage,
+//             totalPrice: total,
+//             status:
+//               session.payment_status === "unpaid" ? "CANCELLED" : "COMPLETED",
+//             StripeOrderId: session.id,
+//             insurance: insurance,
+//           });
+
+//           const transaction = await transactionModel.create({
+//             booking: booking._id,
+//             name: name,
+//             email: email,
+//             phone: phone,
+//             amount: total,
+//             status:
+//               session.payment_status === "unpaid" ? "CANCELLED" : "COMPLETED",
+//             transactionId: session.id,
+//           });
+
+//           await sendMail(transaction.transactionId, total, car.name);
+//           await sendUserMail(
+//             transaction.transactionId,
+//             booking,
+//             total,
+//             car.name,
+//             email,
+//             name
+//           );
+//         }
+
+//         return res.status(200).json({
+//           paymentCaptured: { status: "COMPLETED" },
+//         });
+//       } else if (paymentStatus === "requires_payment_method") {
+//         res.send("Payment failed. Please try again.");
+//       } else {
+//         res.send("Payment status: " + paymentStatus);
+//       }
+//     } catch (error) {
+//       console.error("Error retrieving payment status:", error);
+//       res
+//         .status(500)
+//         .send("An error occurred while retrieving payment status.");
+//     }
+//   } catch (error) {
+//     res.status(500).json(error.message);
 //   }
+// };
 
-//   // Check if the current user is the creator of the event
-//   if (event.userId !== userId) {
-//     return res
-//       .status(StatusCodes.FORBIDDEN)
-//       .json({ success: false, message: "Unauthorized" });
+// const createCheckout = async (req, res, next) => {
+//   const { products, customerEmail, base } = req.body;
+
+//   const lineItems = products.map((product) => ({
+//     price_data: {
+//       currency: "nzd",
+//       product_data: {
+//         name: product.dish,
+//         images: [product.imgdata],
+//       },
+//       unit_amount: product.price * 100,
+//     },
+//     quantity: product.qnty,
+//   }));
+
+//   try {
+//     const session = await stripe.checkout.sessions.create({
+//       payment_method_types: ["card"],
+//       line_items: lineItems,
+//       phone_number_collection: {
+//         enabled: true,
+//       },
+//       mode: "payment",
+//       success_url: `${base}/order`,
+//       cancel_url: `${base}/order`,
+//       customer_email: customerEmail,
+//       custom_fields: [
+//         {
+//           key: "name",
+//           label: {
+//             type: "custom",
+//             custom: "Your name",
+//           },
+//           type: "text",
+//         },
+//       ],
+//     });
+//     res.json({ id: session.id });
+//   } catch (e) {
+//     console.log(e);
 //   }
-
-//   // Delete the event
-//   await event.destroy();
-
-//   res
-//     .status(StatusCodes.OK)
-//     .json({ success: true, message: "Event deleted Successfully" });
-// });
+// };

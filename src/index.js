@@ -7,6 +7,7 @@ const { contentRoute } = require("./content");
 const { notificationModel, notificationRoute } = require("./notification");
 const { subscriptionRoute } = require("./subscription");
 const Subscription = require("./subscription/subscription.model");
+const { transactionRoute } = require("./transactions");
 
 userModel.hasMany(eventModel, { foreignKey: "userId", as: "events" });
 eventModel.belongsTo(userModel, { foreignKey: "userId", as: "creator" });
@@ -23,7 +24,7 @@ userModel.hasMany(notificationModel, {
 });
 notificationModel.belongsTo(userModel, { foreignKey: "userId", as: "user" });
 
-userModel.hasMany(Subscription, { foreignKey: "userId", as: "subscriber" });
+userModel.hasMany(Subscription, { foreignKey: "userId", as: "sub" });
 Subscription.belongsTo(userModel, { foreignKey: "userId" });
 
 eventModel.hasMany(Subscription, { foreignKey: "eventId", as: "subscriber" });
@@ -59,4 +60,5 @@ module.exports = {
   notificationRoute,
   bankRoute,
   subscriptionRoute,
+  transactionRoute,
 };
