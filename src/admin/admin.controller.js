@@ -13,10 +13,10 @@ exports.createUser = catchAsyncError(async (req, res, next) => {
   let user;
   user = imageUrl
     ? await userModel.create({
-      ...req.body,
-      isVerified: true,
-      avatar: imageUrl,
-    })
+        ...req.body,
+        isVerified: true,
+        avatar: imageUrl,
+      })
     : await userModel.create({ ...req.body, isVerified: true });
 
   res.status(StatusCodes.CREATED).json({ user });
@@ -38,7 +38,7 @@ exports.getAllUsers = catchAsyncError(async (req, res, next) => {
   console.log("Admin Get ALl users");
 
   const users = await userModel.findAll();
-  res.status(StatusCodes.OK).json({ users });
+  res.status(StatusCodes.OK).json({ success: true, users });
 });
 
 exports.getSingleUser = catchAsyncError(async (req, res, next) => {
@@ -46,7 +46,7 @@ exports.getSingleUser = catchAsyncError(async (req, res, next) => {
   if (!user)
     return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
 
-  res.status(StatusCodes.OK).json({ user });
+  res.status(StatusCodes.OK).json({ success: true, user });
 });
 
 exports.updateUser = catchAsyncError(async (req, res, next) => {
@@ -72,7 +72,7 @@ exports.updateUser = catchAsyncError(async (req, res, next) => {
 
   res
     .status(StatusCodes.OK)
-    .json({ message: "User Updated Successfully", isUpdated });
+    .json({ sucess: true, message: "User Updated Successfully", isUpdated });
 });
 
 exports.register = catchAsyncError(async (req, res, next) => {
