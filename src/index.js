@@ -8,6 +8,7 @@ const { notificationModel, notificationRoute } = require("./notification");
 const { subscriptionRoute } = require("./subscription");
 const Subscription = require("./subscription/subscription.model");
 const { transactionRoute } = require("./transactions");
+const Transaction = require("./transactions/transaction.model");
 
 userModel.hasMany(eventModel, { foreignKey: "userId", as: "events" });
 eventModel.belongsTo(userModel, { foreignKey: "userId", as: "creator" });
@@ -28,7 +29,24 @@ userModel.hasMany(Subscription, { foreignKey: "userId", as: "user" });
 Subscription.belongsTo(userModel, { foreignKey: "userId", as: "subscriber" });
 
 eventModel.hasMany(Subscription, { foreignKey: "eventId", as: "event" });
-Subscription.belongsTo(eventModel, { foreignKey: "eventId", as: "subscribed_event" });
+Subscription.belongsTo(eventModel, {
+  foreignKey: "eventId",
+  as: "subscribed_event",
+});
+
+eventModel.hasMany(Transaction, { foreignKey: "eventId", as: "transaction" });
+Transaction.belongsTo(eventModel, { foreignKey: "eventId" });
+
+userModel.hasMany(Transaction, { foreignKey: "userId", as: "transaction" });
+Transaction.belongsTo(userModel, { foreignKey: "userId" });
+// userModel.hasMany(Transaction, { foreignKey: "userId", as: "user" });
+// Transaction.belongsTo(userModel, {
+//   foreignKey: "userId",
+//   as: "user_transactions",
+// });
+
+// eventModel.hasMany(Transaction, { foreignKey: "eventId", as: "event" });
+// Transaction.belongsTo(eventModel, { foreignKey: "eventId", as: "transaction" });
 
 const insertQuery = async () => {
   // create admin

@@ -11,7 +11,7 @@ const {
 } = require("./transaction.controller");
 
 router.post("/create", auth, createTransaction);
-router.get("/transaction", auth, getAllTransaction);
+router.get("/all_transactions", auth, getAllTransaction);
 router.get("/single_transaction", auth, getSingleTransaction);
 router.put("/update_transaction", auth, updateTransaction);
 router.delete("/delete_transaction", auth, deleteTransaction);

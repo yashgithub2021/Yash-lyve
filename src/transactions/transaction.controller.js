@@ -2,8 +2,10 @@ const catchAsyncError = require("../../utils/catchAsyncError");
 const ErrorHandler = require("../../utils/errorHandler");
 const { StatusCodes } = require("http-status-codes");
 const Transaction = require("./transaction.model");
-// const { db } = require("../../config/database");
+const { eventModel } = require("../events/event.model");
+const { userModel } = require("../user/user.model");
 
+// currently, No use of this route
 exports.createTransaction = catchAsyncError(async (req, res, next) => {
   console.log("Create transaction", req.body);
   const { userId } = req;
@@ -15,11 +17,25 @@ exports.createTransaction = catchAsyncError(async (req, res, next) => {
 });
 
 exports.getAllTransaction = catchAsyncError(async (req, res, next) => {
-  const transaction = await Transaction.findAll();
+  const transaction = await Transaction.findAll({
+    include: [
+      {
+        model: eventModel,
+        as: "transaction", // Use the correct alias for the event association
+        attributes: ["title", "thumbnail"],
+      },
+      {
+        model: userModel,
+        as: "transaction", // Use the correct alias for the user association
+        attributes: ["username", "avatar", "email"],
+      },
+    ],
+    order: [["createdAt", "DESC"]],
+  });
 
   if (!transaction) {
     return next(
-      new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
+      new ErrorHandler("Transactions not found", StatusCodes.NOT_FOUND)
     );
   }
 
