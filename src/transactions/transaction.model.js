@@ -9,28 +9,29 @@ const Transaction = db.define(
       defaultValue: DataTypes.UUIDV4, // Use UUIDV4 to generate UUID
       primaryKey: true,
     },
-    userId: {
+    customer_id: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    transaction_id: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    payment_amount: {
       type: DataTypes.INTEGER,
       allowNull: false,
     },
-    amount: {
-      type: DataTypes.FLOAT,
-      allowNull: false,
-    },
-    type: {
+    payment_gateway: {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    status: {
+    payment_status: {
       type: DataTypes.STRING,
       allowNull: false,
-      defaultValue: "pending",
     },
   },
   {
     timestamps: true,
-    underscored: true,
-    modelName: "transaction",
   }
 );
 

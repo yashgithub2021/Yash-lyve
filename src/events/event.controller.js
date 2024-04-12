@@ -279,7 +279,11 @@ exports.getEvents = catchAsyncError(async (req, res, next) => {
     req.query;
   const { userId } = req;
 
-  let where = {};
+  let where = {
+    status: {
+      [Op.or]: ["Upcoming", "Live"],
+    },
+  };
   const query = {
     where,
     include: [
@@ -299,7 +303,7 @@ exports.getEvents = catchAsyncError(async (req, res, next) => {
   };
 
   if (status) {
-    where.status = status;
+    where.status = status.charAt(0).toUpperCase() + status.slice(1);
   }
 
   if (genre) {
@@ -586,7 +590,7 @@ exports.globalSearch = catchAsyncError(async (req, res, next) => {
   const events = await eventModel.findAll({
     where: {
       title: { [Op.iLike]: `%${search_query}%` },
-      status: "Upcoming" || "Live",
+      status: { [Op.or]: ["Upcoming", "Live"] },
     },
     ...query,
     attributes: [

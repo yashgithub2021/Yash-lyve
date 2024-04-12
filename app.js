@@ -29,6 +29,7 @@ const {
   notificationRoute,
   subscriptionRoute,
   transactionRoute,
+  bankRoute,
 } = require("./src");
 
 app.use("/api/users", userRoute);
@@ -37,8 +38,12 @@ app.use("/api/admin", adminRouter);
 app.use("/api/post", wishlistRoute);
 app.use("/api/content", contentRoute);
 app.use("/api/notification", notificationRoute);
+app.use("/api/bank", bankRoute);
 app.use("/api/subscription", subscriptionRoute);
 app.use("/api/transaction", transactionRoute);
+
+const { appHook } = require("./utils/stripe");
+app.use(appHook);
 
 app.all("*", async (req, res) => {
   res.status(404).json({
