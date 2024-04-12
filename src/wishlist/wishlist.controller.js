@@ -22,9 +22,10 @@ const addLikeToEvent = async (userId, eventId) => {
     console.log(userId, eventId, existingLike);
 
     // If the user has already liked the event, do nothing
-    if (existingLike.liked) {
-      return next(new Error("You already liked this event"));
-    }
+    // if (existingLike.liked) {
+    //   return next(new Error("You already liked this event"));
+    // }
+    console.log("existingLike", existingLike);
 
     if (!existingLike.liked) {
       // Create or update the like status in the Wishlist table
@@ -54,9 +55,9 @@ const addDislikeToEvent = async (userId, eventId) => {
     console.log(userId, eventId, existingLike);
 
     // If the user has already liked the event, do nothing
-    if (existingLike.disliked) {
-      return next(new Error("You already disliked this event"));
-    }
+    // if (existingLike.disliked) {
+    //   return next(new Error("You already disliked this event"));
+    // }
 
     if (!existingLike.disliked) {
       // Create or update the like status in the Wishlist table

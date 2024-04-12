@@ -4,10 +4,11 @@ const { eventModel } = require("../events/event.model");
 const { userModel } = require("../user");
 const { StatusCodes } = require("http-status-codes");
 const Subscription = require("./subscription.model");
-const { Wishlist } = require("../wishlist/wishlist.model");
-const Transaction = require("../transactions/transaction.model");
+// const { Wishlist } = require("../wishlist/wishlist.model");
+// const Transaction = require("../transactions/transaction.model");
 const { createCheckout, captureStripePayment } = require("../../utils/stripe");
 
+// Create session for generating session id and url for payment
 exports.createSession = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
   const { eventId } = req.params;
@@ -28,15 +29,17 @@ exports.createSession = catchAsyncError(async (req, res, next) => {
   res.status(StatusCodes.CREATED).json({ sessionURL: stripe });
 });
 
+// create subscripion after payment is confrim using seesion id
+// wishlist is not handled yet
 exports.createSubscription = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
   const { eventId } = req.params;
   const { sessionId } = req.params;
-  const { wishlistId } = req.params;
+  // const { wishlistId } = req.params;
 
   const user = await userModel.findByPk(userId);
   const event = await eventModel.findByPk(eventId);
-  const wishlist = await Wishlist.findByPk(wishlistId);
+  // const wishlist = await Wishlist.findByPk(wishlistId);
 
   if (!event || !user)
     return next(
@@ -54,14 +57,14 @@ exports.createSubscription = catchAsyncError(async (req, res, next) => {
     );
   }
 
-  if (wishlist) {
-    if (wishlist.paymentStatus === false) {
-      wishlist.paymentStatus = true;
-      await wishlist.save();
-    }
-  }
+  // if (wishlist) {
+  //   if (wishlist.paymentStatus === false) {
+  //     wishlist.paymentStatus = true;
+  //     await wishlist.save();
+  //   }
+  // }
 
-  console.log("wishlist", wishlist);
+  // console.log("wishlist", wishlist);
 
   // Create subscription
   const subscription = await Subscription.create({
@@ -73,6 +76,7 @@ exports.createSubscription = catchAsyncError(async (req, res, next) => {
   res.status(StatusCodes.CREATED).json({ subscription });
 });
 
+// Get subscription
 exports.getSubscription = catchAsyncError(async (req, res, next) => {
   const { subscriptionId } = req.params;
 
