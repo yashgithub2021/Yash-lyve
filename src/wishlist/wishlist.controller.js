@@ -22,16 +22,14 @@ const addLikeToEvent = async (userId, eventId) => {
     console.log(userId, eventId, existingLike);
 
     // If the user has already liked the event, do nothing
-    if (existingLike.liked) {
-      return next(new Error("You already liked this event"));
-    }
+    if (existingLike) {
+      if (!existingLike.liked) {
+        // Create or update the like status in the Wishlist table
+        existingLike.liked = true;
+        existingLike.disliked = false;
 
-    if (!existingLike.liked) {
-      // Create or update the like status in the Wishlist table
-      existingLike.liked = true;
-      existingLike.disliked = false;
-
-      await existingLike.save();
+        await existingLike.save();
+      }
     } else {
       await Wishlist.create({ userId, eventId, liked: true, disliked: false });
     }
@@ -54,16 +52,14 @@ const addDislikeToEvent = async (userId, eventId) => {
     console.log(userId, eventId, existingLike);
 
     // If the user has already liked the event, do nothing
-    if (existingLike.disliked) {
-      return next(new Error("You already disliked this event"));
-    }
+    if (existingLike) {
+      if (!existingLike.disliked) {
+        // Create or update the like status in the Wishlist table
+        existingLike.liked = false;
+        existingLike.disliked = true;
 
-    if (!existingLike.disliked) {
-      // Create or update the like status in the Wishlist table
-      existingLike.liked = false;
-      existingLike.disliked = true;
-
-      await existingLike.save();
+        await existingLike.save();
+      }
     } else {
       await Wishlist.create({ userId, eventId, liked: false, disliked: true });
     }

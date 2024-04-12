@@ -10,16 +10,18 @@ const createCheckout = async (event, user) => {
   console.log("Datavalues", event.dataValues);
   const amount = event.entry_fee;
   const title = event.title;
+  const email = user.email;
+
   try {
-    const customer = await stripe.customers.create({
-      metadata: {
-        userId: user.id,
-        user: user.username,
-        eventId: event.id,
-        event_name: event.title,
-        event_thubmnail: event.thumbnail,
-      },
-    });
+    // const customer = await stripe.customers.create({
+    //   metadata: {
+    //     userId: user.id,
+    //     user: user.username,
+    //     eventId: event.id,
+    //     event_name: event.title,
+    //     event_thubmnail: event.thumbnail,
+    //   },
+    // });
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -38,9 +40,9 @@ const createCheckout = async (event, user) => {
       mode: "payment",
       success_url: `http://localhost:5000`,
       cancel_url: `http://localhost:5000`,
-      // customer_email: user.email,
-      customer: customer.id,
-      metadata: customer,
+      customer_email: email,
+      // customer: customer.id,
+      // metadata: customer,
     });
     return { session };
   } catch (e) {
@@ -48,7 +50,22 @@ const createCheckout = async (event, user) => {
   }
 };
 
-// Create transaction
+// Capture payments
+const captureStripePayment = async (session_id) => {
+  try {
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+
+    if (!session) {
+      throw new Error("Session not found");
+    }
+
+    return session;
+  } catch (e) {
+    console.log(e.message);
+  }
+};
+
+// Create transaction not working yet
 const createTransaction = async (customer, data) => {
   // const Items = JSON.parse(customer.metadata.cart);
   try {
@@ -68,7 +85,7 @@ const createTransaction = async (customer, data) => {
   }
 };
 
-//Webhook route
+//Webhook route not working yet
 appHook.post(
   "/webhook",
   express.raw({ type: "application/json" }),
@@ -128,21 +145,7 @@ appHook.post(
   }
 );
 
-// Capture payments
-const captureStripePayment = async (session_id) => {
-  try {
-    const session = await stripe.checkout.sessions.retrieve(session_id);
-
-    if (!session) {
-      throw new Error("Session not found");
-    }
-
-    return session;
-  } catch (e) {
-    console.log(e.message);
-  }
-};
-
+// not working yet
 const createStripeCustomer = async (email, username) => {
   try {
     const stripeCustomer = await stripe.customers.create({
@@ -158,6 +161,7 @@ const createStripeCustomer = async (email, username) => {
   }
 };
 
+//not working yet
 const createStripeToken = async (
   // country,
   // currency,
@@ -192,6 +196,7 @@ const createStripeToken = async (
   }
 };
 
+//not working yet
 const addBankDetails = async (cust_Id, token) => {
   try {
     const customerSource = await stripe.customers.createSource(cust_Id, {
