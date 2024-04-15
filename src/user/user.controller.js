@@ -108,38 +108,97 @@ exports.register = catchAsyncError(async (req, res, next) => {
   }
 });
 
+// exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
+//   const { otp, email } = req.body;
+//   if (!otp || !email) {
+//     return next(new ErrorHandler("Missing OTP", StatusCodes.BAD_REQUEST));
+//   }
+//   const otpInstance = await otpModel.findOne({ where: { otp } });
+//   const user = await userModel.findOne({ where: { email } });
+
+//   if (!user)
+//     return next(
+//       new ErrorHandler(
+//         "User not found please check entered email",
+//         StatusCodes.NOT_FOUND
+//       )
+//     );
+
+//     if(!otpInstance){
+
+//     }
+
+//   if (!otpInstance || !otpInstance.isValid()) {
+//     if (otpInstance) {
+//       await otpModel.destroy({ where: { id: otpInstance.id } });
+//       await userModel.destroy({ where: { email: email } });
+//     }
+//     return next(
+//       new ErrorHandler(
+//         "OTP is invalid or has been expired.",
+//         StatusCodes.BAD_REQUEST
+//       )
+//     );
+//   }
+
+//   user.isVerified = true;
+
+//   await user.save();
+//   await otpModel.destroy({ where: { id: otpInstance.id } });
+//   const token = user.getJWTToken();
+//   res.status(StatusCodes.CREATED).json({ success: true, user, token });
+// });
 exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
   const { otp, email } = req.body;
   if (!otp || !email) {
     return next(new ErrorHandler("Missing OTP", StatusCodes.BAD_REQUEST));
   }
-  const otpInstance = await otpModel.findOne({ where: { otp } });
-  const user = await userModel.findOne({ where: { email } });
 
-  if (!user)
+  const user = await userModel.findOne({ where: { email } });
+  if (!user) {
     return next(
       new ErrorHandler(
-        "User not found please check entered email",
+        "User not found. Please check the entered email.",
         StatusCodes.NOT_FOUND
       )
     );
+  }
 
-  if (!otpInstance || !otpInstance.isValid()) {
-    if (otpInstance) {
-      await otpModel.destroy({ where: { id: otpInstance.id } });
-      await userModel.destroy({ where: { email: email } });
-    }
+  const otpInstance = await otpModel.findOne({ where: { otp } });
+  console.log("otpInstance", otpInstance);
+
+  if (!otpInstance) {
     return next(
       new ErrorHandler(
-        "OTP is invalid or has been expired.",
+        "Invalid OTP. Please check the entered OTP.",
         StatusCodes.BAD_REQUEST
       )
     );
   }
+
+  const otpDuration = await otpInstance.isValid();
+
+  // Check OTP validity and expiration
+  if (!otpDuration) {
+    // OTP found but expired
+    await otpModel.destroy({ where: { id: otpInstance.id } });
+    await userModel.destroy({ where: { email } });
+    return next(
+      new ErrorHandler("OTP has been expired.", StatusCodes.BAD_REQUEST)
+    );
+  }
+
+  // Proceed with user verification
   user.isVerified = true;
   await user.save();
+
+  // Destroy the OTP instance after successful verification
   await otpModel.destroy({ where: { id: otpInstance.id } });
+
+  // Generate JWT token for the user
   const token = user.getJWTToken();
+
+  // Respond with success and user details along with token
   res.status(StatusCodes.CREATED).json({ success: true, user, token });
 });
 
@@ -262,7 +321,7 @@ exports.verifyOtp = catchAsyncError(async (req, res, next) => {
 
   const otpInstance = await otpModel.findOne({ where: { otp } });
 
-  if (!otpInstance || !otpInstance.isValid()) {
+  if (!otpInstance || otpInstance.isValid()) {
     if (otpInstance) {
       await otpModel.destroy({ where: { id: otpInstance.id } });
     }
@@ -505,10 +564,7 @@ exports.updateProfile = catchAsyncError(async (req, res, next) => {
   console.log(updateData);
   if (Object.keys(updateData).length === 0) {
     return next(
-      new ErrorHandler(
-        "Please provdide data to update",
-        StatusCodes.BAD_REQUEST
-      )
+      new ErrorHandler("Please provide data to update", StatusCodes.BAD_REQUEST)
     );
   }
   console.log(updateData);
@@ -516,13 +572,17 @@ exports.updateProfile = catchAsyncError(async (req, res, next) => {
     where: { id: userId },
   });
 
+  console.log("isUpdated", isUpdated);
+
   if (isUpdated === 0) {
     return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
   }
 
-  res
-    .status(StatusCodes.OK)
-    .json({ message: "Profile Updated Successfully", isUpdated });
+  res.status(StatusCodes.OK).json({
+    success: true,
+    message: "Profile Updated Successfully",
+    isUpdated,
+  });
 });
 
 exports.deleteUser = catchAsyncError(async (req, res, next) => {

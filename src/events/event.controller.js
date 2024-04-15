@@ -144,7 +144,7 @@ exports.createGenre = catchAsyncError(async (req, res, next) => {
     req.body.thumbnail = imageUrl.Location;
   }
   const genre = await genreModel.create({ ...req.body });
-  res.status(StatusCodes.CREATED).json({ genre });
+  res.status(StatusCodes.CREATED).json({ success: true, genre });
 });
 
 exports.updateGenre = catchAsyncError(async (req, res, next) => {
@@ -180,8 +180,7 @@ exports.updateGenre = catchAsyncError(async (req, res, next) => {
 });
 
 exports.deleteGenre = catchAsyncError(async (req, res, next) => {
-  const genreId = req.params.id;
-  console.log("genre", genreId);
+  const { genreId } = req.params;
 
   const genre = await genreModel.findByPk(genreId);
 
@@ -522,11 +521,66 @@ exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
   res.status(StatusCodes.OK).json({ following_events: formattedEvents });
 });
 
-exports.getGenres = catchAsyncError(async (req, res) => {
-  const genres = await genreModel.findAll({
-    attributes: ["id", "name", "thumbnail"], // Select only id and name fields
+// exports.getGenres = catchAsyncError(async (req, res) => {
+//   const genres = await genreModel.findAll({
+//     attributes: ["id", "name", "thumbnail"], // Select only id and name fields
+//   });
+//   res.status(200).json({ success: true, genres });
+// });
+
+// Add new genre route which contains pagination with query
+exports.getGenres = catchAsyncError(async (req, res, next) => {
+  const { currentPage, resultPerPage, key } = req.query;
+  const offset = (currentPage - 1) * resultPerPage;
+  let whereClause = {};
+
+  if (key && key.trim() !== "") {
+    whereClause = {
+      [Op.or]: [
+        { name: { [Op.iLike]: `%${key}%` } }, // Assuming 'name' is the field to search for genres
+      ],
+    };
+  }
+
+  try {
+    const { count, rows: genres } = await genreModel.findAndCountAll({
+      where: whereClause,
+      attributes: ["id", "name", "thumbnail"], // Select only id, name, and thumbnail fields
+      limit: resultPerPage,
+      offset: offset,
+    });
+
+    res.status(200).json({
+      success: true,
+      length: count,
+      genres: genres,
+    });
+  } catch (error) {
+    next(
+      new ErrorHandler(
+        "Failed to fetch genres",
+        StatusCodes.INTERNAL_SERVER_ERROR
+      )
+    );
+  }
+});
+
+// Add Single Genre route
+exports.getSingleGenre = catchAsyncError(async (req, res, next) => {
+  const { genreId } = req.params;
+
+  const genre = await genreModel.findByPk(genreId);
+
+  console.log(genre);
+
+  if (!genre) {
+    next(new ErrorHandler("Genre not found", StatusCodes.NOT_FOUND));
+  }
+
+  res.status(200).json({
+    success: true,
+    genre,
   });
-  res.status(200).json({ success: true, genres });
 });
 
 exports.getMyUpcomingEvents = catchAsyncError(async (req, res, next) => {
@@ -794,15 +848,75 @@ exports.getStreamedDetails = catchAsyncError(async (req, res, next) => {
 });
 
 exports.getAllEvents = catchAsyncError(async (req, res, next) => {
-  const events = await eventModel.findAll({});
+  const { currentPage, resultPerPage, key, status } = req.query;
+  const offset = (currentPage - 1) * resultPerPage;
+  let whereClause = {};
 
-  if (!events) {
-    return res
-      .status(StatusCodes.NOT_FOUND)
-      .json({ success: false, message: "Events not found" });
+  // Add status to whereClause if provided, otherwise return all events
+  if (status && status.trim() !== "") {
+    if (status === "Live") {
+      whereClause = {
+        ...whereClause,
+        status: "Live",
+      };
+    }
+    if (status === "Completed") {
+      whereClause = {
+        ...whereClause,
+        status: "Completed",
+      };
+    }
+    if (status === "Upcoming") {
+      whereClause = {
+        ...whereClause,
+        status: "Upcoming",
+      };
+    }
   }
 
-  res.status(200).json({ success: true, events });
+  if (key && key.trim() !== "") {
+    whereClause = {
+      ...whereClause,
+      [Op.or]: [
+        { title: { [Op.iLike]: `%${key}%` } }, // Assuming 'name' is the field to search for genres
+      ],
+    };
+  }
+
+  const { count, rows: events } = await eventModel.findAndCountAll({
+    where: whereClause,
+    limit: resultPerPage,
+    offset: offset,
+  });
+
+  res.status(200).json({ success: true, length: count, events });
+});
+
+exports.getSingleEvent = catchAsyncError(async (req, res, next) => {
+  const { eventId } = req.params;
+
+  const event = await eventModel.findByPk(
+    eventId
+    //   {
+    //   include: [
+    //     {
+    //       model: userModel,
+    //       as: "creator",
+    //       attributes: ["id", "username", "avatar"],
+    //     },
+    //   ],
+    // }
+  );
+
+  console.log(event);
+
+  if (!event) {
+    return res
+      .status(StatusCodes.NOT_FOUND)
+      .json({ success: false, message: "Event not found" });
+  }
+
+  res.status(200).json({ success: true, event });
 });
 
 exports.getEventsWithStatus = catchAsyncError(async (req, res, next) => {
@@ -827,4 +941,59 @@ exports.getEventsWithStatus = catchAsyncError(async (req, res, next) => {
   }
 
   res.status(200).json({ success: true, events });
+});
+
+// create admin event update route
+exports.adminUpdateEvent = catchAsyncError(async (req, res, next) => {
+  const { eventId } = req.params;
+
+  let event = await eventModel.findByPk(eventId);
+
+  if (!event) {
+    return res
+      .status(StatusCodes.NOT_FOUND)
+      .json({ message: "Event not found" });
+  }
+
+  // Update event fields
+  let updateData = {};
+
+  const thumbnailFile = req.file;
+
+  console.log(thumbnailFile);
+
+  if (thumbnailFile) {
+    const imageUrl = await s3Uploadv2(thumbnailFile);
+    updateData.thumbnail = imageUrl.Location;
+  }
+
+  // You can add more fields to update as needed
+  const {
+    title,
+    host,
+    event_date,
+    event_time,
+    spots,
+    entry_fee,
+    status,
+    event_duration,
+  } = req.body;
+
+  if (title) updateData.title = title;
+  if (host) updateData.host = host;
+  if (event_date) updateData.event_date = event_date;
+  if (event_time) updateData.event_time = event_time;
+  if (spots) updateData.spots = spots;
+  if (entry_fee) updateData.entry_fee = entry_fee;
+  if (status) updateData.status = status;
+  if (event_duration) updateData.event_duration = event_duration;
+
+  // Update the event
+  await event.update(updateData);
+
+  console.log("eventtttttt", event);
+
+  res
+    .status(StatusCodes.OK)
+    .json({ success: true, message: "Event updated successfully", event });
 });

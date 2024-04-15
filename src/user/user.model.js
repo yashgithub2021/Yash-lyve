@@ -221,7 +221,7 @@ otpModel.prototype.isValid = async function (givenOTP) {
   const user = await userModel.findByPk(this.userId);
   if (!user) return false;
 
-  const otpValidityDuration = 15 * 60 * 1000;
+  const otpValidityDuration = 1 * 60 * 1000;
   const currentTime = new Date().getTime();
   const otpCreationTime = new Date(this.createdAt).getTime();
 
