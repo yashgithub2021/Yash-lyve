@@ -11,11 +11,13 @@ const {
   getEvents,
   getFollowingEvents,
   getGenres,
+  getSingleGenre,
   getMyUpcomingEvents,
   globalSearch,
   getUserEvents,
   getStreamedDetails,
   updateEvent,
+  getSingleEvent,
 } = require("./event.controller");
 
 router.post("/create", upload.single("thumbnail"), auth, createEvent);
@@ -26,7 +28,11 @@ router.put("/update/:eventId", upload.single("thumbnail"), auth, updateEvent);
 
 router.get("/get-events", auth, getEvents);
 
+router.get("/:eventId/get-event", auth, getSingleEvent);
+
 router.get("/get-genre", auth, getGenres);
+
+router.get("/:genreId/get-genre", auth, getSingleGenre);
 
 router.get("/get-following-events", auth, getFollowingEvents);
 
