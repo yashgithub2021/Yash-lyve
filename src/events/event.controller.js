@@ -521,15 +521,15 @@ exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
   res.status(StatusCodes.OK).json({ following_events: formattedEvents });
 });
 
-// exports.getGenres = catchAsyncError(async (req, res) => {
-//   const genres = await genreModel.findAll({
-//     attributes: ["id", "name", "thumbnail"], // Select only id and name fields
-//   });
-//   res.status(200).json({ success: true, genres });
-// });
+exports.getGenres = catchAsyncError(async (req, res) => {
+  const genres = await genreModel.findAll({
+    attributes: ["id", "name", "thumbnail"], // Select only id and name fields
+  });
+  res.status(200).json({ success: true, genres });
+});
 
 // Add new genre route which contains pagination with query
-exports.getGenres = catchAsyncError(async (req, res, next) => {
+exports.getAllGenres = catchAsyncError(async (req, res, next) => {
   const { currentPage, resultPerPage, key } = req.query;
   const offset = (currentPage - 1) * resultPerPage;
   let whereClause = {};
