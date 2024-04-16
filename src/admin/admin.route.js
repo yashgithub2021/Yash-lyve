@@ -13,6 +13,7 @@ const {
 } = require("./admin.controller");
 const {
   createGenre,
+  getAllGenres,
   updateGenre,
   deleteGenre,
   getEvents,
@@ -67,7 +68,8 @@ adminRouter.post("/delete", deleteAdmin);
 // Admin Genre routes
 adminRouter
   .route("/genre")
-  .post(upload.single("thumbnail"), auth, authAdmin, createGenre);
+  .post(upload.single("thumbnail"), auth, authAdmin, createGenre)
+  .get(auth, authAdmin, getAllGenres);
 adminRouter
   .route("/genre/:id")
   .put(upload.single("thumbnail"), auth, authAdmin, updateGenre);
