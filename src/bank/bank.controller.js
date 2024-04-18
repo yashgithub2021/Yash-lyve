@@ -3,6 +3,7 @@ const { createStripeToken, addBankDetails } = require("../../utils/stripe");
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
 
+// create customer
 exports.createCustomer = catchAsyncError(async (req, res, next) => {
   const { name, email } = req.body;
 
@@ -16,73 +17,69 @@ exports.createCustomer = catchAsyncError(async (req, res, next) => {
   res.status(200).json({ customer });
 });
 
-exports.createCardToken = catchAsyncError(async (req, res, next) => {
-  const { cardNumber, expMonth, expYear, cvc } = req.body;
+// attach card with customer
+exports.attachPaymentMethod = catchAsyncError(async (req, res, next) => {
+  const { paymentMethodId, customerId } = req.body;
 
-  const card = {
-    number: cardNumber,
-    exp_month: expMonth,
-    exp_year: expYear,
-    cvc: cvc,
-  };
-
-  const token = await stripe.tokens.create({
-    card,
+  const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, {
+    customer: customerId,
   });
-
-  res.status(200).json({ token });
-});
-
-exports.createCard = catchAsyncError(async (req, res, next) => {
-  //   const { card_number, exp_month, exp_year, cvc } = req.body;
-
-  const paymentMethod = await stripe.paymentMethods.create({
-    type: "card",
-    card: {
-      number: "4242424242424242",
-      exp_month: 8,
-      exp_year: 2026,
-      cvc: "314",
-    },
-  });
-
-  //   const {customerId} = req.params
-  //   await stripe.paymentMethods.attach()
 
   console.log(paymentMethod);
 
-  res.status(200).json({ paymentMethod });
+  res.status(200).json({ success: true, paymentMethod });
 });
 
-//generate token
-exports.addBankAccount = catchAsyncError(async (req, res, next) => {
+// Retrieve payment method
+exports.retrievePaymentMethod = catchAsyncError(async (req, res, next) => {
+  const { paymentMethodId } = req.body;
+
+  const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+
+  console.log(paymentMethod);
+
+  res.status(200).json({ success: true, paymentMethod });
+});
+
+// Add bank details
+exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
   const {
-    // country,
-    // currency,
-    // account_holder_name,
-    // account_holder_type,
-    // routing_number,
-    // account_number,
-    number,
-    exp_month,
-    exp_year,
-    cvc,
+    customerId,
+    country,
+    currency,
+    account_holder_name,
+    account_holder_type,
+    routing_number,
+    account_number,
   } = req.body;
 
+  const paymentMethod = await stripe.customers.createSource(customerId, {
+    bank_account: {
+      object: "bank_account",
+      account_holder_name: account_holder_name,
+      account_holder_type: account_holder_type,
+      account_number: account_number,
+      routing_number: routing_number,
+      country: country,
+      currency: currency,
+    },
+  });
+
   // Create Stripe token for bank account
-  const token = await createStripeToken(number, exp_month, exp_year, cvc);
-  // country,
-  // currency,
-  // account_holder_name,
-  // account_holder_type,
-  // routing_number,
-  // account_number
+  // const token = await createStripeToken(
+  //   country,
+  //   currency,
+  //   account_holder_name,
+  //   account_holder_type,
+  //   routing_number,
+  //   account_number
+  // );
 
   // You can now send this token back to the client
-  res.status(200).json({ token });
+  res.status(200).json({ success: true, paymentMethod });
 });
 
-// for identify whos card with custmer id and source token
+// This routes are not working
 exports.createToken = catchAsyncError(async (req, res, next) => {
   const { customerId, token } = req.params;
 

@@ -809,6 +809,8 @@ exports.getUserEvents = catchAsyncError(async (req, res, next) => {
 exports.getStreamedDetails = catchAsyncError(async (req, res, next) => {
   const { eventId } = req.params;
 
+  console.log("eventId", eventId);
+
   const event = await eventModel.findOne({
     where: {
       id: eventId,
@@ -832,7 +834,7 @@ exports.getStreamedDetails = catchAsyncError(async (req, res, next) => {
   if (!event) {
     return res
       .status(StatusCodes.NOT_FOUND)
-      .json({ message: "Event not found" });
+      .json({ success: false, message: "Event not found" });
   }
 
   event.setDataValue("totalGuest", "500");
@@ -844,7 +846,7 @@ exports.getStreamedDetails = catchAsyncError(async (req, res, next) => {
   event.setDataValue("commission", 245634);
   event.setDataValue("payStatus", "Success");
   event.setDataValue("payout", 631479);
-  res.status(StatusCodes.OK).json({ eventDetails: event });
+  res.status(StatusCodes.OK).json({ success: true, event });
 });
 
 exports.getAllEvents = catchAsyncError(async (req, res, next) => {
