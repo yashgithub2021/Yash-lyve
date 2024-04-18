@@ -7,21 +7,21 @@ const appHook = express();
 appHook.use(express.raw({ type: "*/*" }));
 
 const createCheckout = async (event, user) => {
-  console.log("Datavalues", event.dataValues);
+  // console.log("Datavalues", event.dataValues);
   const amount = event.entry_fee;
   const title = event.title;
   const email = user.email;
 
   try {
-    // const customer = await stripe.customers.create({
-    //   metadata: {
-    //     userId: user.id,
-    //     user: user.username,
-    //     eventId: event.id,
-    //     event_name: event.title,
-    //     event_thubmnail: event.thumbnail,
-    //   },
-    // });
+    const customer = await stripe.customers.create({
+      metadata: {
+        userId: user.id,
+        user: user.username,
+        eventId: event.id,
+        event_name: event.title,
+        event_thubmnail: event.thumbnail,
+      },
+    });
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -40,8 +40,8 @@ const createCheckout = async (event, user) => {
       mode: "payment",
       success_url: `http://localhost:5000`,
       cancel_url: `http://localhost:5000`,
-      customer_email: email,
-      // customer: customer.id,
+      // customer_email: email,
+      customer: customer.id,
       // metadata: customer,
     });
     return { session };
@@ -161,33 +161,23 @@ const createStripeCustomer = async (email, username) => {
   }
 };
 
-//not working yet
 const createStripeToken = async (
-  // country,
-  // currency,
-  // account_holder_name,
-  // account_holder_type,
-  // routing_number,
-  // account_number
-  number,
-  exp_month,
-  exp_year,
-  cvc
+  country,
+  currency,
+  account_holder_name,
+  account_holder_type,
+  routing_number,
+  account_number
 ) => {
   try {
     const token = await stripe.tokens.create({
-      number: "4242424242424242",
-      exp_month: 12,
-      exp_year: 2025,
-      cvc: "123",
+      country: country,
+      currency: currency,
+      account_holder_name: account_holder_name,
+      account_holder_type: account_holder_type,
+      routing_number: routing_number,
+      account_number: account_number,
     });
-
-    // country: country,
-    // currency: currency,
-    // account_holder_name: account_holder_name,
-    // account_holder_type: account_holder_type,
-    // routing_number: routing_number,
-    // account_number: account_number,
 
     return token;
   } catch (error) {

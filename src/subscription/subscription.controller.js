@@ -67,13 +67,13 @@ exports.createSubscription = catchAsyncError(async (req, res, next) => {
   // console.log("wishlist", wishlist);
 
   // Create subscription
-  const subscription = await Subscription.create({
-    userId,
-    eventId,
-    status: true,
-  });
+  // const subscription = await Subscription.create({
+  //   userId,
+  //   eventId,
+  //   status: true,
+  // });
 
-  res.status(StatusCodes.CREATED).json({ subscription });
+  res.status(StatusCodes.CREATED).json({ session });
 });
 
 // Get subscription
