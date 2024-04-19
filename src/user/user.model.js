@@ -145,6 +145,15 @@ const userModel = db.define(
       type: DataTypes.STRING,
       defaultValue: random_profile(),
     },
+    fcm_token: {
+      type: DataTypes.STRING,
+    },
+    customerId: {
+      type: DataTypes.STRING,
+    },
+    payment_methodId: {
+      type: DataTypes.STRING,
+    },
   },
   {
     timestamps: true,

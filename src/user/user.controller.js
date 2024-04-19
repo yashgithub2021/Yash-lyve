@@ -9,6 +9,7 @@ const { Op } = require("sequelize");
 const { db } = require("../../config/database");
 const { eventModel } = require("../events/event.model");
 const { notificationModel } = require("../notification");
+const { createStripeCustomer } = require("../../utils/stripe");
 
 const getMsg = (otp) => {
   return `<html lang="en">
@@ -62,11 +63,19 @@ const createNotification = async (userId, text, title, userAvatar) => {
 
 exports.register = catchAsyncError(async (req, res, next) => {
   console.log("register", req.body);
-  const { email, dob, mobile_no } = req.body;
+  const { email, username, dob, fireBaseToken, mobile_no } = req.body;
   const imageFile = req.file;
   const imageUrl = imageFile && (await s3Uploadv2(imageFile));
   let user;
   const prevUser = await userModel.findOne({ email: email });
+
+  if (!fireBaseToken) {
+    return next(
+      new ErrorHandler("Fire base token is required", StatusCodes.NOT_FOUND)
+    );
+  }
+
+  const stripeCustomerId = await createStripeCustomer(email, username);
 
   if (prevUser && !prevUser.isVerified) {
     await prevUser.update({ ...req.body });
@@ -83,6 +92,8 @@ exports.register = catchAsyncError(async (req, res, next) => {
       : await userModel.create({
           ...req.body,
           role: "User",
+          fcm_token: fireBaseToken,
+          customerId: stripeCustomerId,
           dob: new Date(dob),
         });
   }
@@ -204,7 +215,13 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
 
 exports.login = catchAsyncError(async (req, res, next) => {
   console.log("login", req.body);
-  const { email, password } = req.body;
+  const { email, password, fireBaseToken } = req.body;
+
+  if (!fireBaseToken) {
+    return next(
+      new ErrorHandler("Fire base token is required", StatusCodes.NOT_FOUND)
+    );
+  }
 
   const user = await userModel
     .scope("withPassword")
@@ -234,6 +251,12 @@ exports.login = catchAsyncError(async (req, res, next) => {
   }
 
   const token = user.getJWTToken();
+
+  if (fireBaseToken) {
+    user.fcm_token = fireBaseToken;
+    await user.save();
+  }
+
   res.status(StatusCodes.OK).json({ user, token });
 });
 
