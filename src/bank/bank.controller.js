@@ -3,6 +3,7 @@ const { StatusCodes } = require("http-status-codes");
 const { eventModel } = require("../events/event.model");
 const { userModel } = require("../user");
 const { createStripeToken, addBankDetails } = require("../../utils/stripe");
+const ErrorHandler = require("../../utils/errorHandler");
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
 
@@ -35,7 +36,9 @@ exports.addCardDetails = catchAsyncError(async (req, res, next) => {
   const { payment_methodId } = req.body;
 
   if (!payment_methodId) {
-    return next(new ErrorHandler("Payment Id not found"));
+    return next(
+      new ErrorHandler("Payment method Id not found", StatusCodes.NOT_FOUND)
+    );
   }
 
   const user = await userModel.findByPk(userId);
@@ -62,48 +65,19 @@ exports.addCardDetails = catchAsyncError(async (req, res, next) => {
   });
 });
 
-// create customer on stripe
-// exports.createCustomer = catchAsyncError(async (req, res, next) => {
-//   const { name, email } = req.body;
-
-//   const customer = await stripe.customers.create({
-//     name,
-//     email,
-//   });
-
-//   console.log(customer);
-
-//   res.status(200).json({ customer });
-// });
-
-// attach card with customer
-// exports.attachPaymentMethod = catchAsyncError(async (req, res, next) => {
-//   const { paymentMethodId, customerId } = req.body;
-
-//   const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, {
-//     customer: customerId,
-//   });
-
-//   console.log(paymentMethod);
-
-//   res.status(200).json({ success: true, paymentMethod });
-// });
-
-// Retrieve payment method
-exports.retrievePaymentMethod = catchAsyncError(async (req, res, next) => {
-  const { paymentMethodId } = req.body;
-
-  const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
-
-  console.log(paymentMethod);
-
-  res.status(200).json({ success: true, paymentMethod });
-});
-
 // Add bank details
 exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
+  const { userId } = req;
+
+  const user = await userModel.findByPk(userId);
+
+  if (!user) {
+    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
+  }
+
+  const { customerId } = user;
+
   const {
-    customerId,
     country,
     currency,
     account_holder_name,
@@ -124,31 +98,31 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
     },
   });
 
-  // Create Stripe token for bank account
-  // const token = await createStripeToken(
-  //   country,
-  //   currency,
-  //   account_holder_name,
-  //   account_holder_type,
-  //   routing_number,
-  //   account_number
-  // );
-
-  // You can now send this token back to the client
   res.status(200).json({ success: true, paymentMethod });
 });
 
-// This routes are not working
-// exports.createToken = catchAsyncError(async (req, res, next) => {
-//   const { customerId, token } = req.params;
+// Retrieve payment method
+exports.retrievePaymentMethod = catchAsyncError(async (req, res, next) => {
+  const { paymentMethodId } = req.body;
 
-//   const customer = await stripe.customers.createSource(customerId, {
-//     source: token,
+  const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+
+  console.log(paymentMethod);
+
+  res.status(200).json({ success: true, paymentMethod });
+});
+
+// attach card with customer
+// exports.attachPaymentMethod = catchAsyncError(async (req, res, next) => {
+//   const { paymentMethodId, customerId } = req.body;
+
+//   const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, {
+//     customer: customerId,
 //   });
 
-//   console.log(customer);
+//   console.log(paymentMethod);
 
-//   res.status(200).json({ customer });
+//   res.status(200).json({ success: true, paymentMethod });
 // });
 
 // exports.addBankDetail = catchAsyncError(async (req, res, next) => {

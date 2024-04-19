@@ -84,19 +84,19 @@ exports.register = catchAsyncError(async (req, res, next) => {
   } else {
     user = imageUrl
       ? await userModel.create({
-        ...req.body,
-        role: "User",
-        fcm_token: fireBaseToken,
-        dob: new Date(dob),
-        avatar: imageUrl.Location,
-      })
+          ...req.body,
+          role: "User",
+          fcm_token: fireBaseToken,
+          dob: new Date(dob),
+          avatar: imageUrl.Location,
+        })
       : await userModel.create({
-        ...req.body,
-        role: "User",
-        fcm_token: fireBaseToken,
-        customerId: stripeCustomerId,
-        dob: new Date(dob),
-      });
+          ...req.body,
+          role: "User",
+          fcm_token: fireBaseToken,
+          customerId: stripeCustomerId,
+          dob: new Date(dob),
+        });
   }
 
   const otp = generateOTP();
@@ -194,7 +194,7 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
   if (!otpDuration) {
     // OTP found but expired
     await otpModel.destroy({ where: { id: otpInstance.id } });
-    await userModel.destroy({ where: { email } });
+    // await userModel.destroy({ where: { email } });
     return next(
       new ErrorHandler("OTP has been expired.", StatusCodes.BAD_REQUEST)
     );
