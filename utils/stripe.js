@@ -2,29 +2,22 @@ const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
 const Transaction = require("../src/transactions/transaction.model");
 const express = require("express");
-const appHook = express();
+// const appHook = express();
+const router = express.Router();
 
-appHook.use(express.raw({ type: "*/*" }));
+// appHook.use(express.raw({ type: "*/*" }));
 
 const createCheckout = async (event, user) => {
   // console.log("Datavalues", event.dataValues);
   const amount = event.entry_fee;
   const title = event.title;
-  const email = user.email;
+  // const email = user.email;
 
   try {
-    const customer = await stripe.customers.create({
-      metadata: {
-        userId: user.id,
-        user: user.username,
-        eventId: event.id,
-        event_name: event.title,
-        event_thubmnail: event.thumbnail,
-      },
-    });
-
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
+      billing_address_collection: "required",
+      customer: user.customerId,
       line_items: [
         {
           price_data: {
@@ -41,7 +34,6 @@ const createCheckout = async (event, user) => {
       success_url: `http://localhost:5000`,
       cancel_url: `http://localhost:5000`,
       // customer_email: email,
-      customer: customer.id,
       // metadata: customer,
     });
     return { session };
@@ -86,7 +78,7 @@ const createTransaction = async (customer, data) => {
 };
 
 //Webhook route not working yet
-appHook.post(
+router.post(
   "/webhook",
   express.raw({ type: "application/json" }),
   async (req, res) => {
@@ -145,14 +137,12 @@ appHook.post(
   }
 );
 
-// not working yet
+// create customer on stripe
 const createStripeCustomer = async (email, username) => {
   try {
     const stripeCustomer = await stripe.customers.create({
       email: email,
-      name: username, // Update with the user's name if available
-      description: "Customer for your app", // Add description if needed
-      // Add more fields as needed
+      name: username,
     });
     return stripeCustomer.id;
   } catch (error) {
@@ -161,6 +151,22 @@ const createStripeCustomer = async (email, username) => {
   }
 };
 
+// Add card details on stripe
+const createPaymentMethod = async (paymentMethodId, customerId) => {
+  console.log(paymentMethodId, customerId);
+  try {
+    const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, {
+      customer: customerId,
+    });
+
+    return paymentMethod.id;
+  } catch (error) {
+    console.error("Error addind payment method on stripe:", error);
+    throw new Error("Error addind payment method on stripe");
+  }
+};
+
+// not working
 const createStripeToken = async (
   country,
   currency,
@@ -201,9 +207,10 @@ const addBankDetails = async (cust_Id, token) => {
 
 module.exports = {
   createStripeCustomer,
+  createPaymentMethod,
   createStripeToken,
   addBankDetails,
   createCheckout,
   captureStripePayment,
-  appHook,
+  router,
 };

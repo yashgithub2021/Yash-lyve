@@ -8,6 +8,9 @@ const path = "./config/config.env";
 // const path = "./config/local.env";
 dotenv.config({ path });
 
+const { router } = require("./utils/stripe");
+// app.use(appHook);
+app.use(router);
 app.use(express.json());
 app.use(
   cors({
@@ -41,9 +44,6 @@ app.use("/api/notification", notificationRoute);
 app.use("/api/bank", bankRoute);
 app.use("/api/subscription", subscriptionRoute);
 app.use("/api/transaction", transactionRoute);
-
-const { appHook } = require("./utils/stripe");
-app.use(appHook);
 
 app.all("*", async (req, res) => {
   res.status(404).json({

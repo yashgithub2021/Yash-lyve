@@ -18,7 +18,7 @@ const {
   getCreatorFollowing,
   getSuggestedUsers,
   getUserProfile,
-  getAllUsers
+  getAllUsers,
 } = require("./user.controller");
 const { user } = require("../../middlewares/validate");
 const { upload } = require("../../utils/s3");
@@ -31,7 +31,10 @@ router.post("/forgot-password", forgotPassword);
 router.post("/verify-otp", verifyOtp);
 router.put("/change-password", user.updatePassword, auth, updatePassword);
 router.put("/reset-password", user.updatePassword, updatePassword);
-router.route("/profile").get(auth, getProfile).put(upload.single("image"), auth, updateProfile);
+router
+  .route("/profile")
+  .get(auth, getProfile)
+  .put(upload.single("image"), auth, updateProfile);
 router.delete("/delete", auth, deleteUser);
 router.get("/user-profile/:userId", auth, getUserProfile);
 router.get("/suggested-users", auth, getSuggestedUsers);

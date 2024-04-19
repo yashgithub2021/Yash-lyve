@@ -1,34 +1,93 @@
 const catchAsyncError = require("../../utils/catchAsyncError");
+const { StatusCodes } = require("http-status-codes");
+const { eventModel } = require("../events/event.model");
+const { userModel } = require("../user");
 const { createStripeToken, addBankDetails } = require("../../utils/stripe");
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
 
-// create customer
-exports.createCustomer = catchAsyncError(async (req, res, next) => {
-  const { name, email } = req.body;
+const { createCheckout, captureStripePayment } = require("../../utils/stripe");
 
-  const customer = await stripe.customers.create({
-    name,
-    email,
-  });
+// Create session for generating session id and url for payment
+exports.createSession = catchAsyncError(async (req, res, next) => {
+  const { userId } = req;
+  const { eventId } = req.params;
 
-  console.log(customer);
+  const user = await userModel.findByPk(userId);
+  const event = await eventModel.findByPk(eventId);
 
-  res.status(200).json({ customer });
+  if (!event)
+    return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
+
+  //Getting stipe session
+  const stripe = await createCheckout(event, user);
+
+  if (!stripe) {
+    return next(new ErrorHandler("Session not found", StatusCodes.NOT_FOUND));
+  }
+
+  res.status(StatusCodes.CREATED).json({ sessionURL: stripe });
 });
+
+// Update payment Id and add card details on stripe
+exports.addCardDetails = catchAsyncError(async (req, res, next) => {
+  const { userId } = req;
+  const { payment_methodId } = req.body;
+
+  if (!payment_methodId) {
+    return next(new ErrorHandler("Payment Id not found"));
+  }
+
+  const user = await userModel.findByPk(userId);
+
+  if (!user) {
+    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
+  }
+
+  let updateData = {};
+
+  if (payment_methodId) updateData.payment_methodId = payment_methodId;
+
+  await user.update(updateData);
+
+  const payment_method_id = await createPaymentMethod(
+    user.payment_methodId,
+    user.customerId
+  );
+
+  res.status(StatusCodes.OK).json({
+    success: true,
+    message: "Payment method added Successfully",
+    payment_method_id,
+  });
+});
+
+// create customer on stripe
+// exports.createCustomer = catchAsyncError(async (req, res, next) => {
+//   const { name, email } = req.body;
+
+//   const customer = await stripe.customers.create({
+//     name,
+//     email,
+//   });
+
+//   console.log(customer);
+
+//   res.status(200).json({ customer });
+// });
 
 // attach card with customer
-exports.attachPaymentMethod = catchAsyncError(async (req, res, next) => {
-  const { paymentMethodId, customerId } = req.body;
+// exports.attachPaymentMethod = catchAsyncError(async (req, res, next) => {
+//   const { paymentMethodId, customerId } = req.body;
 
-  const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, {
-    customer: customerId,
-  });
+//   const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, {
+//     customer: customerId,
+//   });
 
-  console.log(paymentMethod);
+//   console.log(paymentMethod);
 
-  res.status(200).json({ success: true, paymentMethod });
-});
+//   res.status(200).json({ success: true, paymentMethod });
+// });
 
 // Retrieve payment method
 exports.retrievePaymentMethod = catchAsyncError(async (req, res, next) => {
@@ -80,37 +139,37 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
 });
 
 // This routes are not working
-exports.createToken = catchAsyncError(async (req, res, next) => {
-  const { customerId, token } = req.params;
+// exports.createToken = catchAsyncError(async (req, res, next) => {
+//   const { customerId, token } = req.params;
 
-  const customer = await stripe.customers.createSource(customerId, {
-    source: token,
-  });
+//   const customer = await stripe.customers.createSource(customerId, {
+//     source: token,
+//   });
 
-  console.log(customer);
+//   console.log(customer);
 
-  res.status(200).json({ customer });
-});
+//   res.status(200).json({ customer });
+// });
 
-exports.addBankDetail = catchAsyncError(async (req, res, next) => {
-  const { cust_Id, token } = req.body;
+// exports.addBankDetail = catchAsyncError(async (req, res, next) => {
+//   const { cust_Id, token } = req.body;
 
-  // Create Stripe token for bank account
-  const bank = await addBankDetails(cust_Id, token);
+//   // Create Stripe token for bank account
+//   const bank = await addBankDetails(cust_Id, token);
 
-  // You can now send this token back to the client
-  res.status(200).json({ bank });
-});
+//   // You can now send this token back to the client
+//   res.status(200).json({ bank });
+// });
 
-exports.getBankDetail = catchAsyncError(async (req, res, next) => {
-  const { stripe_Id } = req.params;
+// exports.getBankDetail = catchAsyncError(async (req, res, next) => {
+//   const { stripe_Id } = req.params;
 
-  // Create Stripe token for bank account
-  const bankAccounts = await stripe.customers.listSources(stripe_Id, {
-    object: "bank_account",
-    limit: 10, // Adjust as needed
-  });
+//   // Create Stripe token for bank account
+//   const bankAccounts = await stripe.customers.listSources(stripe_Id, {
+//     object: "bank_account",
+//     limit: 10, // Adjust as needed
+//   });
 
-  // You can now send this token back to the client
-  res.status(200).json({ bankAccounts });
-});
+//   // You can now send this token back to the client
+//   res.status(200).json({ bankAccounts });
+// });

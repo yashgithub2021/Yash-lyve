@@ -6,28 +6,6 @@ const { StatusCodes } = require("http-status-codes");
 const Subscription = require("./subscription.model");
 // const { Wishlist } = require("../wishlist/wishlist.model");
 // const Transaction = require("../transactions/transaction.model");
-const { createCheckout, captureStripePayment } = require("../../utils/stripe");
-
-// Create session for generating session id and url for payment
-exports.createSession = catchAsyncError(async (req, res, next) => {
-  const { userId } = req;
-  const { eventId } = req.params;
-
-  const user = await userModel.findByPk(userId);
-  const event = await eventModel.findByPk(eventId);
-
-  if (!event)
-    return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
-
-  //Getting stipe session
-  const stripe = await createCheckout(event, user);
-
-  if (!stripe) {
-    return next(new ErrorHandler("Session not found", StatusCodes.NOT_FOUND));
-  }
-
-  res.status(StatusCodes.CREATED).json({ sessionURL: stripe });
-});
 
 // create subscripion after payment is confrim using seesion id
 // wishlist is not handled yet
