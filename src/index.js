@@ -34,11 +34,11 @@ Subscription.belongsTo(eventModel, {
   as: "subscribed_event",
 });
 
-eventModel.hasMany(Transaction, { foreignKey: "eventId", as: "transaction" });
-Transaction.belongsTo(eventModel, { foreignKey: "eventId" });
+eventModel.hasMany(Transaction, { foreignKey: "eventId", as: "Transaction" });
+Transaction.belongsTo(eventModel, { foreignKey: "eventId", as: "event" });
 
-userModel.hasMany(Transaction, { foreignKey: "userId", as: "transaction" });
-Transaction.belongsTo(userModel, { foreignKey: "userId" });
+userModel.hasMany(Transaction, { foreignKey: "userId", as: "Transaction" });
+Transaction.belongsTo(userModel, { foreignKey: "userId", as: "user" });
 // userModel.hasMany(Transaction, { foreignKey: "userId", as: "user" });
 // Transaction.belongsTo(userModel, {
 //   foreignKey: "userId",

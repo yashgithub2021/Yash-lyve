@@ -2,25 +2,43 @@ const catchAsyncError = require("../../utils/catchAsyncError");
 const { StatusCodes } = require("http-status-codes");
 const { eventModel } = require("../events/event.model");
 const { userModel } = require("../user");
-const { createStripeToken, addBankDetails } = require("../../utils/stripe");
 const ErrorHandler = require("../../utils/errorHandler");
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
+const {
+  createCheckout,
+  addBankDetails,
+  deleteBankDetails,
+  verifyBankAccount,
+  updateBankAccount,
+  addCardDetails,
+  deleteCardDetails,
+  updateCardDetails,
+  payInterest,
+  // getTotalAmount,
+} = require("../../utils/stripe");
+const Transaction = require("../transactions/transaction.model");
 
-const { createCheckout, captureStripePayment } = require("../../utils/stripe");
+// const { createCheckout, captureStripePayment } = require("../../utils/stripe");
 
-// Create session for generating session id and url for payment
+// Create session for generating session id and url for payment "Checked"
 exports.createSession = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
   const { eventId } = req.params;
 
   const user = await userModel.findByPk(userId);
-  const event = await eventModel.findByPk(eventId);
+  const event = await eventModel.findByPk(eventId, {
+    include: {
+      model: userModel,
+      as: "creator",
+      attributes: ["id", "username", "bank_account_id"],
+    },
+  });
 
   if (!event)
     return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
 
-  //Getting stipe session
+  //Getting stripe session
   const stripe = await createCheckout(event, user);
 
   if (!stripe) {
@@ -30,8 +48,8 @@ exports.createSession = catchAsyncError(async (req, res, next) => {
   res.status(StatusCodes.CREATED).json({ sessionURL: stripe });
 });
 
-// Update payment Id and add card details on stripe
-exports.addCardDetails = catchAsyncError(async (req, res, next) => {
+// Update payment Id and add card details on stripe "Checked"
+exports.addCard = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
   const { payment_methodId } = req.body;
 
@@ -49,23 +67,99 @@ exports.addCardDetails = catchAsyncError(async (req, res, next) => {
 
   let updateData = {};
 
-  if (payment_methodId) updateData.payment_methodId = payment_methodId;
+  if (payment_methodId) updateData.payment_method_id = payment_methodId;
 
   await user.update(updateData);
 
-  const payment_method_id = await createPaymentMethod(
-    user.payment_methodId,
+  const payment_method_id = await addCardDetails(
+    user.payment_method_id,
     user.customerId
   );
 
   res.status(StatusCodes.OK).json({
     success: true,
-    message: "Payment method added Successfully",
+    message: "Card added Successfully",
     payment_method_id,
   });
 });
 
-// Add bank details
+// Update payment Id and update card details on stripe "checked"
+exports.updateCard = catchAsyncError(async (req, res, next) => {
+  const { userId } = req;
+  const {
+    name,
+    email,
+    address_line1,
+    address_line2,
+    address_city,
+    address_state,
+    address_postal_code,
+    address_country,
+    exp_month,
+    exp_year,
+  } = req.body;
+
+  const user = await userModel.findByPk(userId);
+
+  if (!user) {
+    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
+  }
+
+  const payment_method_id = await updateCardDetails(
+    user.payment_method_id,
+    name,
+    email,
+    address_line1,
+    address_line2,
+    address_city,
+    address_state,
+    address_postal_code,
+    address_country,
+    exp_month,
+    exp_year
+  );
+
+  let updateData = {};
+
+  if (payment_method_id) updateData.payment_method_id = payment_method_id;
+
+  await user.update(updateData);
+
+  res.status(StatusCodes.OK).json({
+    success: true,
+    message: "Card updated Successfully",
+    payment_method_id,
+  });
+});
+
+// Update payment Id and delete card details on stripe "Checked"
+exports.deleteCard = catchAsyncError(async (req, res, next) => {
+  const { userId } = req;
+
+  const user = await userModel.findByPk(userId);
+
+  if (!user) {
+    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
+  }
+
+  const { payment_method_id } = user;
+
+  const card = await deleteCardDetails(payment_method_id);
+
+  let updateData = {};
+
+  if (card.id) updateData.payment_method_id = null;
+
+  await user.update(updateData);
+
+  res.status(StatusCodes.OK).json({
+    success: true,
+    message: "Card deleted Successfully",
+    deleted: card.id,
+  });
+});
+
+// Add bank details and verifying account if not verified then bank account will be deleted "Checked"
 exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
 
@@ -86,19 +180,66 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
     account_number,
   } = req.body;
 
-  const paymentMethod = await stripe.customers.createSource(customerId, {
-    bank_account: {
-      object: "bank_account",
-      account_holder_name: account_holder_name,
-      account_holder_type: account_holder_type,
-      account_number: account_number,
-      routing_number: routing_number,
-      country: country,
-      currency: currency,
-    },
-  });
+  const accountId = await addBankDetails(
+    country,
+    currency,
+    account_holder_name,
+    account_holder_type,
+    routing_number,
+    account_number,
+    customerId
+  );
 
-  res.status(200).json({ success: true, paymentMethod });
+  const verification = await verifyBankAccount(customerId, accountId);
+
+  let updateData = {};
+
+  if (accountId) updateData.bank_account_id = accountId;
+
+  await user.update(updateData);
+
+  res.status(200).json({ success: true, status: verification });
+});
+
+// Update bank details
+exports.updateBankAccountDetails = catchAsyncError(async (req, res, next) => {
+  const { userId } = req;
+
+  const user = await userModel.findByPk(userId);
+
+  if (!user) {
+    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
+  }
+
+  const { customerId, bank_account_id } = user;
+
+  const updatedAccount = await updateBankAccount(customerId, bank_account_id);
+
+  res.status(200).json({ success: true, updatedAccount });
+});
+
+// delete bank details "Checked"
+exports.deleteBankAccountDetails = catchAsyncError(async (req, res, next) => {
+  const { userId } = req;
+
+  const user = await userModel.findByPk(userId);
+
+  if (!user) {
+    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
+  }
+
+  const { customerId, bank_account_id } = user;
+
+  const deleteAccount = await deleteBankDetails(customerId, bank_account_id);
+
+  let updatedData = {};
+
+  if (deleteAccount.deleted) {
+    updatedData.bank_account_id = null;
+  }
+  await user.update(updatedData);
+
+  res.status(200).json({ success: true, deleteAccount: deleteAccount });
 });
 
 // Retrieve payment method
@@ -111,6 +252,61 @@ exports.retrievePaymentMethod = catchAsyncError(async (req, res, next) => {
 
   res.status(200).json({ success: true, paymentMethod });
 });
+
+exports.totalCharges = catchAsyncError(async (req, res, next) => {
+  // const { eventId } = req.params;
+
+  const transactions = await Transaction.findAll({
+    where: { payment_status: "paid" },
+    include: [
+      {
+        model: userModel,
+        as: "user",
+        attributes: ["id", "username", "avatar", "bank_account_id"],
+      },
+      {
+        model: eventModel,
+        as: "event",
+        attributes: ["id", "title", "thumbnail"],
+      },
+    ],
+  });
+
+  if (!transactions) {
+    return next(
+      new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
+    );
+  }
+
+  let totalAmount = 0;
+
+  transactions.forEach((transaction) => {
+    totalAmount += transaction.payment_amount;
+  });
+
+  const calculatedPercentage = calculate60Percent(totalAmount);
+  const amount = await payInterest(
+    calculatedPercentage,
+    transactions[0].bank_account_id
+  );
+
+  res.status(200).json({ success: true, amount });
+});
+
+function calculate60Percent(totalAmount) {
+  // Ensure totalAmount is a valid number
+  if (typeof totalAmount !== "number" || isNaN(totalAmount)) {
+    throw new Error("Total amount must be a valid number.");
+  }
+
+  // Calculate 60% of the total amount
+  const sixtyPercent = totalAmount * 0.6;
+
+  // Round to 2 decimal places (optional)
+  const roundedSixtyPercent = Math.round(sixtyPercent * 100) / 100;
+
+  return roundedSixtyPercent;
+}
 
 // attach card with customer
 // exports.attachPaymentMethod = catchAsyncError(async (req, res, next) => {

@@ -29,6 +29,13 @@ const Transaction = db.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    charge: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    bank_account_id: {
+      type: DataTypes.STRING,
+    },
   },
   {
     timestamps: true,
