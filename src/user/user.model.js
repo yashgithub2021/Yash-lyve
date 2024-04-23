@@ -151,7 +151,10 @@ const userModel = db.define(
     customerId: {
       type: DataTypes.STRING,
     },
-    payment_methodId: {
+    payment_method_id: {
+      type: DataTypes.STRING,
+    },
+    bank_account_id: {
       type: DataTypes.STRING,
     },
   },
