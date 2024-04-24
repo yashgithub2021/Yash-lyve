@@ -10,7 +10,9 @@ const { db } = require("../../config/database");
 const { eventModel } = require("../events/event.model");
 const { notificationModel } = require("../notification");
 const { createStripeCustomer } = require("../../utils/stripe");
+const { firebase } = require("../../utils/firebase");
 
+const messaging = firebase.messaging();
 const getMsg = (otp) => {
   return `<html lang="en">
   <head>
@@ -61,6 +63,29 @@ const createNotification = async (userId, text, title, userAvatar) => {
   console.log("Notification created successfully");
 };
 
+exports.sendDummyToken = catchAsyncError(async (req, res, next) => {
+  const { firebaseToken } = req.body;
+  const message = {
+    notification: {
+      title: "Hello from FCM!",
+      body: "This is a test message from FCM.",
+    },
+    token:
+      null,
+  };
+  messaging
+    .send(message)
+    .then((response) => {
+      res.status(200).send(response);
+      console.log("fcm errorrrrr", response)
+    })
+    .catch((error) => {
+      console.log("fcm errorrrrr", error)
+
+      res.status(400).send(error);
+    });
+});
+
 exports.register = catchAsyncError(async (req, res, next) => {
   console.log("register", req.body);
   const { email, username, dob, fireBaseToken, mobile_no } = req.body;
@@ -84,19 +109,19 @@ exports.register = catchAsyncError(async (req, res, next) => {
   } else {
     user = imageUrl
       ? await userModel.create({
-          ...req.body,
-          role: "User",
-          fcm_token: fireBaseToken,
-          dob: new Date(dob),
-          avatar: imageUrl.Location,
-        })
+        ...req.body,
+        role: "User",
+        fcm_token: fireBaseToken,
+        dob: new Date(dob),
+        avatar: imageUrl.Location,
+      })
       : await userModel.create({
-          ...req.body,
-          role: "User",
-          fcm_token: fireBaseToken,
-          customerId: stripeCustomerId,
-          dob: new Date(dob),
-        });
+        ...req.body,
+        role: "User",
+        fcm_token: fireBaseToken,
+        customerId: stripeCustomerId,
+        dob: new Date(dob),
+      });
   }
 
   const otp = generateOTP();
@@ -632,7 +657,7 @@ exports.followCreator = catchAsyncError(async (req, res, next) => {
 
   if (userId === creatorId) {
     return next(
-      new ErrorHandler("you can not follow yourself", StatusCodes.FORBIDDEN)
+      new ErrorHandler("You cannot follow yourself", StatusCodes.FORBIDDEN)
     );
   }
 
@@ -660,10 +685,32 @@ exports.followCreator = catchAsyncError(async (req, res, next) => {
     currUser.avatar
   );
 
-  res
-    .status(StatusCodes.CREATED)
-    .json({ success: true, message: "You are now following this user" });
+  let token = targetCreator.fcm_token;
+  console.log("Target user FCM token:", token);
+
+  const fcmMessage = {
+    notification: {
+      title: "New Follower",
+      body: `${currUser.username} started following you.`,
+    },
+    token,
+    data: {
+      type: "follow",
+    },
+  };
+
+  try {
+    await messaging.send(fcmMessage);
+    console.log("Push notification sent successfully.");
+  } catch (error) {
+    // Handle error if FCM token is expired or invalid
+    console.error("Error sending push notification:", error);
+    // Log the error and proceed with the follow operation
+  }
+
+  res.status(StatusCodes.CREATED).json({ success: true, message: "You are now following this user" });
 });
+
 
 exports.unfollowCreator = catchAsyncError(async (req, res, next) => {
   console.log("Unfollow creator", req.params);
