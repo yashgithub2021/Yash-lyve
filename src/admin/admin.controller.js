@@ -234,7 +234,13 @@ exports.updateAdminProfile = catchAsyncError(async (req, res, next) => {
 // Create Admin dashboard
 exports.getDashboardData = catchAsyncError(async (req, res, next) => {
   const [userCount, events, genreCount] = await Promise.all([
-    userModel.count(),
+    userModel.count({
+      where: {
+        role: {
+          [Op.not]: "Admin",
+        },
+      },
+    }),
     eventModel.findAll({ raw: true }),
     genreModel.count(),
   ]);

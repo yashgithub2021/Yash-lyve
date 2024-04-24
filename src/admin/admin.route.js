@@ -21,6 +21,7 @@ const {
   getEventsWithStatus,
   getSingleEvent,
   adminUpdateEvent,
+  adminDeleteEvent,
 } = require("../events/event.controller");
 
 const {
@@ -81,6 +82,7 @@ adminRouter.route("/get_event").get(auth, authAdmin, getSingleEvent);
 adminRouter
   .route("/update/:eventId")
   .put(upload.single("thumbnail"), auth, authAdmin, adminUpdateEvent);
+adminRouter.delete("/delete/:eventId", auth, authAdmin, adminDeleteEvent);
 adminRouter
   .route("/get-event-status")
   .get(auth, authAdmin, getEventsWithStatus);

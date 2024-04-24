@@ -999,3 +999,24 @@ exports.adminUpdateEvent = catchAsyncError(async (req, res, next) => {
     .status(StatusCodes.OK)
     .json({ success: true, message: "Event updated successfully", event });
 });
+
+// admin delete events
+exports.adminDeleteEvent = catchAsyncError(async (req, res, next) => {
+  const { eventId } = req.params;
+
+  const event = await eventModel.findByPk(eventId);
+
+  // Check if event exists
+  if (!event) {
+    return res
+      .status(StatusCodes.NOT_FOUND)
+      .json({ success: false, message: "Event not found" });
+  }
+
+  // Delete the event
+  await event.destroy();
+
+  res
+    .status(StatusCodes.OK)
+    .json({ success: true, message: "Event deleted Successfully" });
+});
