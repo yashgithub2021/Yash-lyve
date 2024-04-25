@@ -4,69 +4,77 @@ const Transaction = require("../src/transactions/transaction.model");
 const express = require("express");
 const router = express.Router();
 
-// Add payment checkout session
-const createCheckout = async (event, user) => {
+// create customer on stripe
+const createStripeCustomer = async (email, username) => {
+  try {
+    const stripeCustomer = await stripe.customers.create({
+      email: email,
+      name: username,
+    });
+    return stripeCustomer.id;
+  } catch (error) {
+    console.error("Error creating Stripe customer:", error);
+    throw new Error(error.message);
+  }
+};
+
+// Add payment Intent
+const createPaymentIntent = async (event, user) => {
   // console.log("Datavalues", event.dataValues);
   const amount = event.entry_fee;
   const title = event.title;
   const accountId = event.dataValues.creator.dataValues.bank_account_id;
 
   try {
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      billing_address_collection: "required",
+    // const session = await stripe.checkout.sessions.create({
+    //   payment_method_types: ["card"],
+    //   billing_address_collection: "required",
+    //   customer: user.customerId,
+    //   line_items: [
+    //     {
+    //       price_data: {
+    //         currency: "usd",
+    //         product_data: {
+    //           name: title,
+    //           images: [event.thumbnail],
+    //         },
+    //         unit_amount: amount * 100,
+    //       },
+    //       quantity: 1,
+    //     },
+    //   ],
+    //   mode: "payment",
+    //   success_url: `http://localhost:5000`,
+    //   cancel_url: `http://localhost:5000`,
+    //   metadata: {
+    //     eventId: event.id,
+    //     userId: user.id,
+    //     amount: event.entry_fee,
+    //     customerName: user.username,
+    //     accountId: accountId,
+    //     // bank_account_id: user.user.bank_account_id
+    //   },
+    // });
+    // return { session };
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amount * 100, // Amount in cents
+      currency: "usd",
+      description: title,
       customer: user.customerId,
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: title,
-              images: [event.thumbnail],
-            },
-            unit_amount: amount * 100,
-          },
-          quantity: 1,
-        },
-      ],
-      mode: "payment",
-      success_url: `http://localhost:5000`,
-      cancel_url: `http://localhost:5000`,
       metadata: {
         eventId: event.id,
         userId: user.id,
         amount: event.entry_fee,
         customerName: user.username,
+        customerId: user.customerId,
         accountId: accountId,
-        // bank_account_id: user.user.bank_account_id
       },
+      payment_method_types: ["card"],
     });
-    return { session };
-  } catch (e) {
-    console.log(e);
-  }
-};
-
-// Create transaction model
-const createTransaction = async (customer, data, paid) => {
-  // const Items = JSON.parse(customer.metadata.cart);
-  // console.log("trrrrr", data);
-  try {
-    const transaction = await Transaction.create({
-      userId: data.metadata.userId,
-      eventId: data.metadata.eventId,
-      customer_id: data.customer,
-      transaction_id: data.id,
-      payment_gateway: data.payment_method_types[0],
-      payment_amount: data.amount_total,
-      payment_status: data.payment_status,
-      charge: paid,
-      bank_account_id: data.metadata.accountId,
-      // metadata: customer.metadata,
-    });
-    console.log("Processed Order:", transaction);
-  } catch (err) {
-    console.log(err);
+    return { client_secret: paymentIntent.client_secret };
+  } catch (error) {
+    console.log(error);
+    throw Error("Unable to create client secret", error.message);
   }
 };
 
@@ -80,8 +88,7 @@ router.post(
 
     // Check if webhook signing is configured.
     let webhookSecret;
-    webhookSecret =
-      "whsec_baa566e628b46819c0be536920fa0d74dc4706710e62e1143febf9506fbf6602";
+    webhookSecret = process.env.WEBHOOK_SECRET;
 
     if (webhookSecret) {
       // Retrieve the event by verifying the signature using the raw body and secret.
@@ -111,15 +118,46 @@ router.post(
       eventType = req.body.type;
     }
 
-    // Handle the checkout.session.completed event
-    if (eventType === "checkout.session.completed") {
-      console.log("ppppaid");
+    // Handle the payment_intent.succeeded event
+    if (eventType === "payment_intent.succeeded") {
       stripe.customers
         .retrieve(data.customer)
         .then(async (customer) => {
           try {
             // CREATE ORDER
-            createTransaction(customer, data, "paid");
+            createTransaction(customer, data, "success");
+            // console.log("data", data);
+          } catch (err) {
+            console.log(err);
+          }
+        })
+        .catch((err) => console.log(err.message));
+    }
+
+    // Handle the payment_intent.payment_failed event
+    if (eventType === "payment_intent.payment_failed") {
+      stripe.customers
+        .retrieve(data.customer)
+        .then(async (customer) => {
+          try {
+            // CREATE ORDER
+            createTransaction(customer, data, "failed");
+            // console.log("data", data);
+          } catch (err) {
+            console.log(err);
+          }
+        })
+        .catch((err) => console.log(err.message));
+    }
+
+    // Handle the payment_intent.canceled event
+    if (eventType === "payment_intent.canceled") {
+      stripe.customers
+        .retrieve(data.customer)
+        .then(async (customer) => {
+          try {
+            // CREATE ORDER
+            createTransaction(customer, data, "canceled");
             // console.log("data", data);
           } catch (err) {
             console.log(err);
@@ -131,17 +169,25 @@ router.post(
   }
 );
 
-// create customer on stripe
-const createStripeCustomer = async (email, username) => {
+// Create transaction model
+const createTransaction = async (customer, data, paid) => {
+  // const Items = JSON.parse(customer.metadata.cart);
+  // console.log("trrrrr", data);
   try {
-    const stripeCustomer = await stripe.customers.create({
-      email: email,
-      name: username,
+    const transaction = await Transaction.create({
+      userId: data.metadata.userId,
+      eventId: data.metadata.eventId,
+      customer_id: data.customer,
+      transaction_id: data.id,
+      payment_gateway: data.payment_method_types[0],
+      payment_amount: data.amount_total,
+      payment_status: data.payment_status,
+      charge: paid,
+      bank_account_id: data.metadata.accountId,
     });
-    return stripeCustomer.id;
-  } catch (error) {
-    console.error("Error creating Stripe customer:", error);
-    throw new Error(error.message);
+    console.log("Processed Order:", transaction);
+  } catch (err) {
+    console.log(err);
   }
 };
 
@@ -227,12 +273,49 @@ const addBankDetails = async (
   account_holder_type,
   routing_number,
   account_number,
-  customerId
+  email
 ) => {
   try {
-    const account = await stripe.tokens.create({
-      bank_account: {
-        // object: "bank_account",
+    const connect = await stripe.accounts.create({
+      type: "custom",
+      country: "US", // Specify 'IN' for India
+      email: email, // Email associated with the account
+      business_type: "individual",
+      business_profile: {
+        mcc: "5734", // Merchant category code for retail
+        url: "https://lyvechat.com", // Business website URL
+      },
+      tos_acceptance: {
+        date: 1609798905,
+        ip: "8.8.8.8", // IP address of the connected account owner
+      },
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
+      individual: {
+        address: {
+          city: "new york",
+          line1: "new york",
+          postal_code: "10011",
+          state: "new york",
+        },
+        dob: {
+          day: "09",
+          month: "03",
+          year: "2002",
+        },
+        email: email,
+        first_name: "Kuldeep",
+        last_name: "Panwar",
+        phone: "8349040873",
+        ssn_last_4: "1111",
+      },
+    });
+
+    const account = await stripe.accounts.createExternalAccount(connect.id, {
+      external_account: {
+        object: "bank_account",
         account_holder_name: account_holder_name,
         account_holder_type: account_holder_type,
         account_number: account_number,
@@ -242,34 +325,9 @@ const addBankDetails = async (
       },
     });
 
-    const bankAccount = await stripe.customers.createSource(customerId, {
-      source: account.id,
-    });
-    return bankAccount.id;
+    return account;
   } catch (error) {
     console.error("Error creating Stripe customer:", error);
-    throw new Error(error.message);
-  }
-};
-
-// Verify bank account on stripe
-const verifyBankAccount = async (customerId, bankAccountId) => {
-  try {
-    const verifybankAccount = await stripe.customers.verifySource(
-      customerId,
-      bankAccountId,
-      {
-        amounts: [32, 45],
-      }
-    );
-
-    if (verifybankAccount.status !== "verified") {
-      await deleteBankDetails(customerId, bankAccountId);
-    }
-
-    return verifybankAccount.status;
-  } catch (error) {
-    console.log(error);
     throw new Error(error.message);
   }
 };
@@ -292,12 +350,13 @@ const updateBankAccount = async (customerId, bankAccountId) => {
 // Delete bank details on stripe
 const deleteBankDetails = async (customerId, bankAccountId) => {
   try {
-    const customerSource = await stripe.customers.deleteSource(
-      customerId,
-      bankAccountId
-    );
+    // const customerSource = await stripe.customers.deleteSource(
+    //   customerId,
+    //   bankAccountId
+    // );
+    const deleted = await stripe.accounts.del("acct_1P9Qy1PwJe7MSMAc");
 
-    return customerSource;
+    return deleted;
   } catch (error) {
     console.log(error);
     throw new Error(error.message);
@@ -305,13 +364,18 @@ const deleteBankDetails = async (customerId, bankAccountId) => {
 };
 
 // pay 60% to the content creator
-const payInterest = async (totalAmount, accountId) => {
-  console.log(totalAmount, accountId);
+const payCommission = async (totalAmount, accountId) => {
+  // console.log(totalAmount, accountId);
   try {
+    // const payout = await stripe.payouts.create({
+    //   amount: 2000,
+    //   currency: "usd",
+    //   destination: "acct_1P9R4qQ1N2RA0yRm",
+    // });
     const transfer = await stripe.transfers.create({
-      amount: 5000, // $50.00 in cents
+      amount: totalAmount,
       currency: "usd",
-      destination: "ba_1P8NnRSC6KKmQtB0rBH3bQzO", // Test bank account ID
+      destination: accountId,
       description: "Transfer to event creator",
     });
     return transfer;
@@ -321,45 +385,15 @@ const payInterest = async (totalAmount, accountId) => {
   }
 };
 
-// Capture payments
-const captureStripePayment = async (session_id) => {
-  try {
-    const session = await stripe.checkout.sessions.retrieve(session_id);
-
-    if (!session) {
-      throw new Error("Session not found");
-    }
-
-    return session;
-  } catch (e) {
-    console.log(e.message);
-  }
-};
-
-//not working yet
-// const addBankDetails = async (cust_Id, token) => {
-//   try {
-//     const customerSource = await stripe.customers.createSource(cust_Id, {
-//       source: token,
-//     });
-//     return customerSource;
-//   } catch (error) {
-//     console.error("Error creating Stripe customer:", error);
-//     throw new Error("Error creating Stripe customer");
-//   }
-// };
-
 module.exports = {
   createStripeCustomer,
   addCardDetails,
   deleteCardDetails,
   updateCardDetails,
   addBankDetails,
-  verifyBankAccount,
   updateBankAccount,
   deleteBankDetails,
-  createCheckout,
-  captureStripePayment,
-  payInterest,
+  createPaymentIntent,
+  payCommission,
   router,
 };
