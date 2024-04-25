@@ -16,7 +16,6 @@ const {
   getAllGenres,
   updateGenre,
   deleteGenre,
-  getEvents,
   getAllEvents,
   getEventsWithStatus,
   getSingleEvent,

@@ -8,7 +8,6 @@ const {
   addBankAccountDetails,
   updateBankAccountDetails,
   deleteBankAccountDetails,
-  retrievePaymentMethod,
   deleteCard,
   updateCard,
   totalCharges,
@@ -21,12 +20,6 @@ router.post("/create-session/:eventId", auth, createSession);
 router.put("/add-bank-details", auth, addBankAccountDetails);
 router.put("/update-bank-details", auth, updateBankAccountDetails);
 router.put("/delete-bank-details", auth, deleteBankAccountDetails);
-
 router.get("/get-charge", totalCharges);
-
-router.get("/get_payment_method", auth, retrievePaymentMethod);
-
-// Not working
-// router.get("/get-bank-details/:stripe_Id", getBankDetail);
 
 module.exports = router;

@@ -2,26 +2,22 @@ const catchAsyncError = require("../../utils/catchAsyncError");
 const { StatusCodes } = require("http-status-codes");
 const { eventModel } = require("../events/event.model");
 const { userModel } = require("../user");
+const Transaction = require("../transactions/transaction.model");
 const ErrorHandler = require("../../utils/errorHandler");
-const secret_key = process.env.STRIPE_SECRET_KEY;
-const stripe = require("stripe")(secret_key);
+// const secret_key = process.env.STRIPE_SECRET_KEY;
+// const stripe = require("stripe")(secret_key);
 const {
-  createCheckout,
+  createPaymentIntent,
   addBankDetails,
   deleteBankDetails,
-  verifyBankAccount,
   updateBankAccount,
   addCardDetails,
   deleteCardDetails,
   updateCardDetails,
-  payInterest,
-  // getTotalAmount,
+  payCommission,
 } = require("../../utils/stripe");
-const Transaction = require("../transactions/transaction.model");
 
-// const { createCheckout, captureStripePayment } = require("../../utils/stripe");
-
-// Create session for generating session id and url for payment "Checked"
+// Create payment intent for generating client secret "Checked"
 exports.createSession = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
   const { eventId } = req.params;
@@ -39,14 +35,16 @@ exports.createSession = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
 
   //Getting stripe session
-  const stripe = await createCheckout(event, user);
+  const stripe = await createPaymentIntent(event, user);
 
   if (!stripe) {
     return next(new ErrorHandler("Session not found", StatusCodes.NOT_FOUND));
   }
 
-  res.status(StatusCodes.CREATED).json({ sessionURL: stripe });
+  res.status(StatusCodes.CREATED).json({ success: true, stripe });
 });
+
+// ================== Add Card methods ======================
 
 // Update payment Id and add card details on stripe "Checked"
 exports.addCard = catchAsyncError(async (req, res, next) => {
@@ -159,6 +157,8 @@ exports.deleteCard = catchAsyncError(async (req, res, next) => {
   });
 });
 
+// ================== Add Bank methods ======================
+
 // Add bank details and verifying account if not verified then bank account will be deleted "Checked"
 exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
@@ -169,7 +169,7 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
   }
 
-  const { customerId } = user;
+  const { email } = user;
 
   const {
     country,
@@ -187,10 +187,8 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
     account_holder_type,
     routing_number,
     account_number,
-    customerId
+    email
   );
-
-  const verification = await verifyBankAccount(customerId, accountId);
 
   let updateData = {};
 
@@ -198,7 +196,7 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
 
   await user.update(updateData);
 
-  res.status(200).json({ success: true, status: verification });
+  res.status(200).json({ success: true, accountId });
 });
 
 // Update bank details
@@ -232,67 +230,57 @@ exports.deleteBankAccountDetails = catchAsyncError(async (req, res, next) => {
 
   const deleteAccount = await deleteBankDetails(customerId, bank_account_id);
 
-  let updatedData = {};
+  // let updatedData = {};
 
-  if (deleteAccount.deleted) {
-    updatedData.bank_account_id = null;
-  }
-  await user.update(updatedData);
+  // if (deleteAccount.deleted) {
+  //   updatedData.bank_account_id = null;
+  // }
+  // await user.update(updatedData);
 
   res.status(200).json({ success: true, deleteAccount: deleteAccount });
 });
 
-// Retrieve payment method
-exports.retrievePaymentMethod = catchAsyncError(async (req, res, next) => {
-  const { paymentMethodId } = req.body;
-
-  const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
-
-  console.log(paymentMethod);
-
-  res.status(200).json({ success: true, paymentMethod });
-});
-
+// Pay commission 60% of the total amount
 exports.totalCharges = catchAsyncError(async (req, res, next) => {
   // const { eventId } = req.params;
 
-  const transactions = await Transaction.findAll({
-    where: { payment_status: "paid" },
-    include: [
-      {
-        model: userModel,
-        as: "user",
-        attributes: ["id", "username", "avatar", "bank_account_id"],
-      },
-      {
-        model: eventModel,
-        as: "event",
-        attributes: ["id", "title", "thumbnail"],
-      },
-    ],
-  });
+  // const transactions = await Transaction.findAll({
+  //   where: { payment_status: "paid" },
+  //   include: [
+  //     {
+  //       model: userModel,
+  //       as: "user",
+  //       attributes: ["id", "username", "avatar", "bank_account_id"],
+  //     },
+  //     {
+  //       model: eventModel,
+  //       as: "event",
+  //       attributes: ["id", "title", "thumbnail"],
+  //     },
+  //   ],
+  // });
 
-  if (!transactions) {
-    return next(
-      new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
-    );
-  }
+  // if (!transactions) {
+  //   return next(
+  //     new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
+  //   );
+  // }
 
-  let totalAmount = 0;
+  // let totalAmount = 0;
 
-  transactions.forEach((transaction) => {
-    totalAmount += transaction.payment_amount;
-  });
+  // transactions.forEach((transaction) => {
+  //   totalAmount += transaction.payment_amount;
+  // });
 
-  const calculatedPercentage = calculate60Percent(totalAmount);
-  const amount = await payInterest(
-    calculatedPercentage,
-    transactions[0].bank_account_id
-  );
+  // const calculatedPercentage = calculate60Percent(totalAmount);
+  const amount = await payCommission();
+  // calculatedPercentage,
+  // transactions[0].bank_account_id
 
   res.status(200).json({ success: true, amount });
 });
 
+// Function for calculating 60% of the total amount
 function calculate60Percent(totalAmount) {
   // Ensure totalAmount is a valid number
   if (typeof totalAmount !== "number" || isNaN(totalAmount)) {
@@ -307,39 +295,3 @@ function calculate60Percent(totalAmount) {
 
   return roundedSixtyPercent;
 }
-
-// attach card with customer
-// exports.attachPaymentMethod = catchAsyncError(async (req, res, next) => {
-//   const { paymentMethodId, customerId } = req.body;
-
-//   const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, {
-//     customer: customerId,
-//   });
-
-//   console.log(paymentMethod);
-
-//   res.status(200).json({ success: true, paymentMethod });
-// });
-
-// exports.addBankDetail = catchAsyncError(async (req, res, next) => {
-//   const { cust_Id, token } = req.body;
-
-//   // Create Stripe token for bank account
-//   const bank = await addBankDetails(cust_Id, token);
-
-//   // You can now send this token back to the client
-//   res.status(200).json({ bank });
-// });
-
-// exports.getBankDetail = catchAsyncError(async (req, res, next) => {
-//   const { stripe_Id } = req.params;
-
-//   // Create Stripe token for bank account
-//   const bankAccounts = await stripe.customers.listSources(stripe_Id, {
-//     object: "bank_account",
-//     limit: 10, // Adjust as needed
-//   });
-
-//   // You can now send this token back to the client
-//   res.status(200).json({ bankAccounts });
-// });
