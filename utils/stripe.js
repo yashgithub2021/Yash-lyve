@@ -23,7 +23,7 @@ const createPaymentIntent = async (event, user) => {
   // console.log("Datavalues", event.dataValues);
   const amount = event.entry_fee;
   const title = event.title;
-  const accountId = event.dataValues.creator.dataValues.bank_account_id;
+  const accountId = user.bank_account_id;
 
   try {
     // const session = await stripe.checkout.sessions.create({
@@ -56,6 +56,17 @@ const createPaymentIntent = async (event, user) => {
     //   },
     // });
     // return { session };
+
+    const params = {
+      customer: user.customerId,
+    };
+
+    const options = {
+      apiVersion: "2020-08-27",
+    };
+
+    const ephemeralKey = await stripe.ephemeralKeys.create(params, options);
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amount * 100, // Amount in cents
       currency: "usd",
@@ -71,7 +82,12 @@ const createPaymentIntent = async (event, user) => {
       },
       payment_method_types: ["card"],
     });
-    return { client_secret: paymentIntent.client_secret };
+    return {
+      client_secret: paymentIntent.client_secret,
+      Key: ephemeralKey.id,
+      customer: user.customerId,
+      secret: process.env.STRIPE_PUBLISHABLE_KEY,
+    };
   } catch (error) {
     console.log(error);
     throw Error("Unable to create client secret", error.message);
@@ -119,14 +135,14 @@ router.post(
     }
 
     // Handle the payment_intent.succeeded event
-    if (eventType === "payment_intent.succeeded") {
+    if (eventType === "checkout.session.completed") {
       stripe.customers
         .retrieve(data.customer)
         .then(async (customer) => {
           try {
             // CREATE ORDER
             createTransaction(customer, data, "success");
-            // console.log("data", data);
+            console.log("data", data);
           } catch (err) {
             console.log(err);
           }
@@ -276,10 +292,23 @@ const addBankDetails = async (
   email
 ) => {
   try {
+    const token = await await stripe.tokens.create({
+      bank_account: {
+        object: "bank_account",
+        account_holder_name: account_holder_name,
+        account_holder_type: account_holder_type,
+        account_number: account_number,
+        routing_number: routing_number,
+        country: country,
+        currency: currency,
+      },
+    });
+
     const connect = await stripe.accounts.create({
       type: "custom",
       country: "US", // Specify 'IN' for India
       email: email, // Email associated with the account
+      external_account: token.id,
       business_type: "individual",
       business_profile: {
         mcc: "5734", // Merchant category code for retail
@@ -294,6 +323,7 @@ const addBankDetails = async (
         transfers: { requested: true },
       },
       individual: {
+        id_number: "123-45-6789",
         address: {
           city: "new york",
           line1: "new york",
@@ -309,23 +339,11 @@ const addBankDetails = async (
         first_name: "Kuldeep",
         last_name: "Panwar",
         phone: "8349040873",
-        ssn_last_4: "1111",
+        ssn_last_4: "6789",
       },
     });
 
-    const account = await stripe.accounts.createExternalAccount(connect.id, {
-      external_account: {
-        object: "bank_account",
-        account_holder_name: account_holder_name,
-        account_holder_type: account_holder_type,
-        account_number: account_number,
-        routing_number: routing_number,
-        country: country,
-        currency: currency,
-      },
-    });
-
-    return account;
+    return connect.id;
   } catch (error) {
     console.error("Error creating Stripe customer:", error);
     throw new Error(error.message);
@@ -354,7 +372,7 @@ const deleteBankDetails = async (customerId, bankAccountId) => {
     //   customerId,
     //   bankAccountId
     // );
-    const deleted = await stripe.accounts.del("acct_1P9Qy1PwJe7MSMAc");
+    const deleted = await stripe.accounts.del("acct_1P9hAsQ3RPj4bnat");
 
     return deleted;
   } catch (error) {
@@ -363,15 +381,10 @@ const deleteBankDetails = async (customerId, bankAccountId) => {
   }
 };
 
-// pay 60% to the content creator
+// pay 60% commission to content creator
 const payCommission = async (totalAmount, accountId) => {
-  // console.log(totalAmount, accountId);
+  console.log(totalAmount, accountId);
   try {
-    // const payout = await stripe.payouts.create({
-    //   amount: 2000,
-    //   currency: "usd",
-    //   destination: "acct_1P9R4qQ1N2RA0yRm",
-    // });
     const transfer = await stripe.transfers.create({
       amount: totalAmount,
       currency: "usd",
