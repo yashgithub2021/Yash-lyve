@@ -34,6 +34,8 @@ exports.createSession = catchAsyncError(async (req, res, next) => {
   if (!event)
     return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
 
+  // console.log("userrrr", user);
+
   //Getting stripe session
   const stripe = await createPaymentIntent(event, user);
 
@@ -169,7 +171,7 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
   }
 
-  const { email } = user;
+  const { email, username, dob } = user;
 
   const {
     country,
@@ -187,7 +189,9 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
     account_holder_type,
     routing_number,
     account_number,
-    email
+    email,
+    username,
+    dob
   );
 
   let updateData = {};
@@ -244,38 +248,42 @@ exports.deleteBankAccountDetails = catchAsyncError(async (req, res, next) => {
 exports.totalCharges = catchAsyncError(async (req, res, next) => {
   // const { eventId } = req.params;
 
-  // const transactions = await Transaction.findAll({
-  //   where: { payment_status: "paid" },
-  //   include: [
-  //     {
-  //       model: userModel,
-  //       as: "user",
-  //       attributes: ["id", "username", "avatar", "bank_account_id"],
-  //     },
-  //     {
-  //       model: eventModel,
-  //       as: "event",
-  //       attributes: ["id", "title", "thumbnail"],
-  //     },
-  //   ],
-  // });
+  const transactions = await Transaction.findAll({
+    where: { payment_status: "paid" },
+    include: [
+      {
+        model: userModel,
+        as: "user",
+        attributes: ["id", "username", "avatar", "bank_account_id"],
+      },
+      {
+        model: eventModel,
+        as: "event",
+        attributes: ["id", "title", "thumbnail"],
+      },
+    ],
+  });
 
-  // if (!transactions) {
-  //   return next(
-  //     new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
-  //   );
-  // }
+  if (!transactions) {
+    return next(
+      new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
+    );
+  }
 
-  // let totalAmount = 0;
+  let totalAmount = 0;
 
-  // transactions.forEach((transaction) => {
-  //   totalAmount += transaction.payment_amount;
-  // });
+  transactions.forEach((transaction) => {
+    totalAmount += transaction.payment_amount;
+  });
 
-  // const calculatedPercentage = calculate60Percent(totalAmount);
-  const amount = await payCommission();
-  // calculatedPercentage,
-  // transactions[0].bank_account_id
+  const calculatedPercentage = await calculate60Percent(totalAmount);
+  // console.log("trrrrr", transactions[3].bank_account_id);
+  // console.log(calculatedPercentage);
+
+  const amount = await payCommission(
+    calculatedPercentage,
+    transactions[0].bank_account_id
+  );
 
   res.status(200).json({ success: true, amount });
 });
