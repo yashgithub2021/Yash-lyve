@@ -66,7 +66,6 @@ const createPaymentIntent = async (event, user) => {
     };
 
     const ephemeralKey = await stripe.ephemeralKeys.create(params, options);
-    console.log(ephemeralKey);
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amount * 100, // Amount in cents
@@ -85,7 +84,7 @@ const createPaymentIntent = async (event, user) => {
     });
     return {
       client_secret: paymentIntent.client_secret,
-      Key: ephemeralKey.id,
+      Key: ephemeralKey.secret,
       customer: user.customerId,
       secret: process.env.STRIPE_PUBLISHABLE_KEY,
     };
