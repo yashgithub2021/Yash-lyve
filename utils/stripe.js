@@ -66,6 +66,7 @@ const createPaymentIntent = async (event, user) => {
     };
 
     const ephemeralKey = await stripe.ephemeralKeys.create(params, options);
+    console.log(ephemeralKey);
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amount * 100, // Amount in cents
@@ -141,7 +142,7 @@ router.post(
         .then(async (customer) => {
           try {
             // CREATE ORDER
-            createTransaction(customer, data, "success");
+            createTransaction(customer, data, "");
             console.log("data", data);
           } catch (err) {
             console.log(err);

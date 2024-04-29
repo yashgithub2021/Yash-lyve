@@ -4,6 +4,7 @@ const { eventModel } = require("../events/event.model");
 const { userModel } = require("../user");
 const Transaction = require("../transactions/transaction.model");
 const ErrorHandler = require("../../utils/errorHandler");
+const cron = require("node-cron");
 // const secret_key = process.env.STRIPE_SECRET_KEY;
 // const stripe = require("stripe")(secret_key);
 const {
@@ -245,48 +246,62 @@ exports.deleteBankAccountDetails = catchAsyncError(async (req, res, next) => {
 });
 
 // Pay commission 60% of the total amount
-exports.totalCharges = catchAsyncError(async (req, res, next) => {
-  // const { eventId } = req.params;
+const task = cron.schedule("*/15 * * * * *", async () => {
+  const arr = {};
+  try {
+    const transactions = await Transaction.findAll({
+      where: { payment_status: "paid" },
+      include: [
+        {
+          model: userModel,
+          as: "user",
+          attributes: ["id", "username", "avatar", "bank_account_id"],
+        },
+        {
+          model: eventModel,
+          as: "event",
+          attributes: ["id", "title", "thumbnail"],
+        },
+      ],
+    });
 
-  const transactions = await Transaction.findAll({
-    where: { payment_status: "paid" },
-    include: [
-      {
-        model: userModel,
-        as: "user",
-        attributes: ["id", "username", "avatar", "bank_account_id"],
-      },
-      {
-        model: eventModel,
-        as: "event",
-        attributes: ["id", "title", "thumbnail"],
-      },
-    ],
-  });
+    if (!transactions) {
+      return next(
+        new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
+      );
+    }
 
-  if (!transactions) {
-    return next(
-      new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
-    );
+    for (let transaction of transactions) {
+      if (!transaction.charge) {
+        if (arr[transaction.eventId]) {
+          arr[transaction.eventId]["amount"] += transaction.payment_amount;
+        } else {
+          arr[transaction.eventId] = {};
+          arr[transaction.eventId]["amount"] = transaction.payment_amount;
+          arr[transaction.eventId]["bank_account_id"] =
+            transaction.bank_account_id;
+        }
+      }
+    }
+
+    // calculating 60% of the total amount and making transfer to the bank
+    for (let obj in arr) {
+      const calculatedPercentage = calculate60Percent(arr[obj].amount);
+      console.log(calculatedPercentage);
+
+      const amount = await payCommission(
+        calculatedPercentage,
+        arr[obj].bank_account_id
+      );
+      console.log(amount);
+    }
+  } catch (e) {
+    console.log(e);
   }
-
-  let totalAmount = 0;
-
-  transactions.forEach((transaction) => {
-    totalAmount += transaction.payment_amount;
-  });
-
-  const calculatedPercentage = await calculate60Percent(totalAmount);
-  // console.log("trrrrr", transactions[3].bank_account_id);
-  // console.log(calculatedPercentage);
-
-  const amount = await payCommission(
-    calculatedPercentage,
-    transactions[0].bank_account_id
-  );
-
-  res.status(200).json({ success: true, amount });
 });
+
+// task.start();
+task.stop();
 
 // Function for calculating 60% of the total amount
 function calculate60Percent(totalAmount) {
