@@ -35,7 +35,7 @@ exports.createSession = catchAsyncError(async (req, res, next) => {
   if (!event)
     return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
 
-  // console.log("userrrr", user);
+  // console.log("eventrer", event.creator);
 
   //Getting stripe session
   const stripe = await createPaymentIntent(event, user);
@@ -246,7 +246,7 @@ exports.deleteBankAccountDetails = catchAsyncError(async (req, res, next) => {
 });
 
 // Pay commission 60% of the total amount
-const task = cron.schedule("*/15 * * * * *", async () => {
+const task = cron.schedule("*/10 * * * * *", async () => {
   const arr = {};
   try {
     const transactions = await Transaction.findAll({
@@ -287,16 +287,25 @@ const task = cron.schedule("*/15 * * * * *", async () => {
     // calculating 60% of the total amount and making transfer to the bank
     for (let obj in arr) {
       const calculatedPercentage = calculate60Percent(arr[obj].amount);
-      console.log(calculatedPercentage);
 
       const amount = await payCommission(
         calculatedPercentage,
         arr[obj].bank_account_id
       );
-      console.log(amount);
+      console.log("ammtttt", amount);
+      // updating the charge field
+      if (amount.id) {
+        await Transaction.update(
+          {
+            charge: "success",
+          },
+          { where: { eventId: obj } }
+        );
+      }
     }
-  } catch (e) {
-    console.log(e);
+  } catch (error) {
+    console.log(error);
+    throw new Error(error.message);
   }
 });
 

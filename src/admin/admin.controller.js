@@ -52,6 +52,8 @@ exports.getAllUsers = catchAsyncError(async (req, res, next) => {
     whereClause.role = { [Op.ne]: "Admin" };
   }
 
+  whereClause.isVerified = true;
+
   const { count, rows: users } = await userModel.findAndCountAll({
     where: whereClause,
     limit: resultPerPage,

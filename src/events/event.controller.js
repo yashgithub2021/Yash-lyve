@@ -133,6 +133,53 @@ exports.updateEvent = catchAsyncError(async (req, res, next) => {
     .json({ success: true, message: "Event updated successfully", event });
 });
 
+// Added cancel event route
+exports.cancelEvent = catchAsyncError(async (req, res, next) => {
+  const { eventId } = req.params;
+  const { userId } = req;
+
+  const event = await eventModel.findByPk(eventId);
+
+  if (!event) {
+    return res
+      .status(StatusCodes.NOT_FOUND)
+      .json({ message: "Event not found" });
+  }
+
+  // Check if the current user is the creator of the event
+  if (event.userId !== userId) {
+    return res
+      .status(StatusCodes.FORBIDDEN)
+      .json({ message: "You are not authorized to cancel this event" });
+  }
+
+  // Check if the event start time is more than 24 hours in the future
+  const eventStartTime = new Date(event.event_date).getTime();
+  const currentTime = new Date().getTime();
+  const twentyFourHoursInMilliseconds = 24 * 60 * 60 * 1000;
+
+  if (eventStartTime - currentTime <= twentyFourHoursInMilliseconds) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      message: "Event cannot be canceled within 24 hours of start time",
+    });
+  }
+
+  // Update event fields
+  let updateData = {};
+
+  // Example: Update other fields
+  const { status } = req.body;
+
+  if (status) updateData.status = status;
+
+  // Update the event
+  await event.update(updateData);
+
+  res
+    .status(StatusCodes.OK)
+    .json({ success: true, message: "Event canceled successfully", event });
+});
+
 exports.createGenre = catchAsyncError(async (req, res, next) => {
   console.log("Create Genre", req.body);
   const thumbnailFile = req.file;
@@ -909,8 +956,6 @@ exports.getSingleEvent = catchAsyncError(async (req, res, next) => {
     //   ],
     // }
   );
-
-  console.log(event);
 
   if (!event) {
     return res

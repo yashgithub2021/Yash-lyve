@@ -6,10 +6,22 @@ const router = express.Router();
 
 // create customer on stripe
 const createStripeCustomer = async (email, username) => {
+  const stripeAddress = {
+    line1: "asdsadsad",
+    line2: "dasadsads",
+    city: "userAddress.city",
+    country: "US",
+    postal_code: "123456",
+    state: "userAddress.state",
+  };
+
   try {
     const stripeCustomer = await stripe.customers.create({
       email: email,
       name: username,
+      description: "userData.description",
+      phone: "1234567890",
+      address: stripeAddress,
     });
     return stripeCustomer.id;
   } catch (error) {
@@ -23,9 +35,38 @@ const createPaymentIntent = async (event, user) => {
   // console.log("Datavalues", event.dataValues);
   const amount = event.entry_fee;
   const title = event.title;
-  const accountId = user.bank_account_id;
+  const accountId = event.creator.bank_account_id;
 
   try {
+    const ephemeralKey = await stripe.ephemeralKeys.create(
+      { customer: user.customerId },
+      { apiVersion: "2024-04-10" }
+    );
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amount * 100, // Amount in cents
+      currency: "usd",
+      description: "Software development services",
+      customer: user.customerId,
+      metadata: {
+        eventName: title,
+        eventId: event.id,
+        userId: user.id,
+        amount: event.entry_fee,
+        customerName: user.username,
+        customerId: user.customerId,
+        accountId: accountId,
+      },
+      payment_method_types: ["card"],
+    });
+    return {
+      client_secret: paymentIntent.client_secret,
+      ephemeral_keys: ephemeralKey.secret,
+      customer: user.customerId,
+      pusblishable_secret:
+        "pk_test_51P3eQNSC6KKmQtB0fXyW286m0IuEF8ysClpkXKMQVVFqdRf34q5EgmbviuGVDt07FlNshVFU10edbjZmaF2OJ1VM00Z2x46noC",
+    };
+
     // const session = await stripe.checkout.sessions.create({
     //   payment_method_types: ["card"],
     //   billing_address_collection: "required",
@@ -56,38 +97,6 @@ const createPaymentIntent = async (event, user) => {
     //   },
     // });
     // return { session };
-
-    const params = {
-      customer: user.customerId,
-    };
-
-    const options = {
-      apiVersion: "2020-08-27",
-    };
-
-    const ephemeralKey = await stripe.ephemeralKeys.create(params, options);
-
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount * 100, // Amount in cents
-      currency: "usd",
-      description: title,
-      customer: user.customerId,
-      metadata: {
-        eventId: event.id,
-        userId: user.id,
-        amount: event.entry_fee,
-        customerName: user.username,
-        customerId: user.customerId,
-        accountId: accountId,
-      },
-      payment_method_types: ["card"],
-    });
-    return {
-      client_secret: paymentIntent.client_secret,
-      Key: ephemeralKey.secret,
-      customer: user.customerId,
-      secret: process.env.STRIPE_PUBLISHABLE_KEY,
-    };
   } catch (error) {
     console.log(error);
     throw Error("Unable to create client secret", error.message);
@@ -151,13 +160,13 @@ router.post(
     }
 
     // Handle the payment_intent.payment_failed event
-    if (eventType === "payment_intent.payment_failed") {
+    if (eventType === "checkout.session.async_payment_failed") {
       stripe.customers
         .retrieve(data.customer)
         .then(async (customer) => {
           try {
             // CREATE ORDER
-            createTransaction(customer, data, "failed");
+            createTransaction(customer, data, "");
             // console.log("data", data);
           } catch (err) {
             console.log(err);
@@ -368,11 +377,7 @@ const updateBankAccount = async (customerId, bankAccountId) => {
 // Delete bank details on stripe
 const deleteBankDetails = async (customerId, bankAccountId) => {
   try {
-    // const customerSource = await stripe.customers.deleteSource(
-    //   customerId,
-    //   bankAccountId
-    // );
-    const deleted = await stripe.accounts.del("acct_1P9hAsQ3RPj4bnat");
+    const deleted = await stripe.accounts.del("acct_1PAnBoQ3hDCwxU5W");
 
     return deleted;
   } catch (error) {
@@ -383,7 +388,7 @@ const deleteBankDetails = async (customerId, bankAccountId) => {
 
 // pay 60% commission to content creator
 const payCommission = async (totalAmount, accountId) => {
-  console.log(totalAmount, accountId);
+  // console.log(totalAmount, accountId);
   try {
     const transfer = await stripe.transfers.create({
       amount: totalAmount,
@@ -398,6 +403,23 @@ const payCommission = async (totalAmount, accountId) => {
   }
 };
 
+// pay 60% commission to content creator
+const payRefund = async (totalAmount, accountId) => {
+  // console.log(totalAmount, accountId);
+  try {
+    const refund = await stripe.refunds.create({
+      amount: totalAmount,
+      currency: "usd",
+      destination: accountId,
+      description: "refund to event creator",
+    });
+    return refund;
+  } catch (error) {
+    console.error("Error creating refund:", error);
+    throw new Error(error.message);
+  }
+};
+
 module.exports = {
   createStripeCustomer,
   addCardDetails,
@@ -408,5 +430,6 @@ module.exports = {
   deleteBankDetails,
   createPaymentIntent,
   payCommission,
+  payRefund,
   router,
 };

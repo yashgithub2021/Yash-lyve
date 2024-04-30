@@ -18,6 +18,7 @@ const {
   getStreamedDetails,
   updateEvent,
   getSingleEvent,
+  cancelEvent,
 } = require("./event.controller");
 
 router.post("/create", upload.single("thumbnail"), auth, createEvent);
@@ -26,9 +27,11 @@ router.delete("/delete/:eventId", auth, deleteEvent);
 
 router.put("/update/:eventId", upload.single("thumbnail"), auth, updateEvent);
 
+router.put("/cancel-event/:eventId", auth, cancelEvent);
+
 router.get("/get-events", auth, getEvents);
 
-router.get("/:eventId/get-event", auth, getSingleEvent);
+router.get("/get-event/:eventId", auth, getSingleEvent);
 
 router.get("/get-genre", auth, getGenres);
 
