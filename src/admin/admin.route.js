@@ -95,7 +95,7 @@ adminRouter
 // Admin Transaction routes
 adminRouter.route("/all_transactions").get(auth, authAdmin, getAllTransaction);
 adminRouter
-  .route("/:transactionId")
+  .route("/get-transaction/:transactionId")
   .get(auth, authAdmin, getAdminSingleTransaction);
 adminRouter
   .route("/update/:transactionId")

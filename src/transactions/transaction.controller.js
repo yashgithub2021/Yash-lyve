@@ -123,8 +123,7 @@ exports.deleteTransaction = catchAsyncError(async (req, res, next) => {
 exports.getAdminSingleTransaction = catchAsyncError(async (req, res, next) => {
   const { transactionId } = req.params;
 
-  const transaction = await Transaction.findOne({
-    where: { transactionId },
+  const transaction = await Transaction.findByPk(transactionId, {
     include: [
       {
         model: eventModel,
