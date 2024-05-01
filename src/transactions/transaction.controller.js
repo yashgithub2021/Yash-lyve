@@ -6,15 +6,48 @@ const { eventModel } = require("../events/event.model");
 const { userModel } = require("../user/user.model");
 
 exports.getAllTransaction = catchAsyncError(async (req, res, next) => {
-  const transactions = await Transaction.findAll();
+  const { currentPage, resultPerPage, key, status } = req.query;
+  const offset = (currentPage - 1) * resultPerPage;
+  let whereClause = {};
 
-  if (!transactions) {
-    return next(
-      new ErrorHandler("Transactions not found", StatusCodes.NOT_FOUND)
-    );
+  // Add status to whereClause if provided, otherwise return all events
+  if (status && status.trim() !== "") {
+    if (status === "succeeded") {
+      whereClause = {
+        ...whereClause,
+        payment_status: "succeeded",
+      };
+    }
+    if (status === "failed") {
+      whereClause = {
+        ...whereClause,
+        payment_status: "failed",
+      };
+    }
+    if (status === "cancelled") {
+      whereClause = {
+        ...whereClause,
+        payment_status: "cancelled",
+      };
+    }
   }
 
-  res.status(StatusCodes.CREATED).json({ success: true, transactions });
+  if (key && key.trim() !== "") {
+    whereClause = {
+      ...whereClause,
+      [Op.or]: [
+        { transaction_id: { [Op.iLike]: `%${key}%` } }, // Assuming 'name' is the field to search for genres
+      ],
+    };
+  }
+
+  const { count, rows: transactions } = await Transaction.findAndCountAll({
+    where: whereClause,
+    limit: resultPerPage,
+    offset: offset,
+  });
+
+  res.status(200).json({ success: true, length: count, transactions });
 });
 
 exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
