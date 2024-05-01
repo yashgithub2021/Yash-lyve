@@ -17,21 +17,7 @@ exports.createTransaction = catchAsyncError(async (req, res, next) => {
 });
 
 exports.getAllTransaction = catchAsyncError(async (req, res, next) => {
-  const transaction = await Transaction.findAll({
-    include: [
-      {
-        model: eventModel,
-        as: "event", // Use the correct alias for the event association
-        attributes: ["title", "thumbnail"],
-      },
-      {
-        model: userModel,
-        as: "user", // Use the correct alias for the user association
-        attributes: ["username", "avatar", "email"],
-      },
-    ],
-    order: [["createdAt", "DESC"]],
-  });
+  const transaction = await Transaction.findAll();
 
   if (!transaction) {
     return next(
