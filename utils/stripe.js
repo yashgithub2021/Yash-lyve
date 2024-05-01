@@ -163,7 +163,6 @@ router.post(
 
 // Create transaction model
 const createTransaction = async (customer, data, paid) => {
-  // const Items = JSON.parse(customer.metadata.cart);
   try {
     const transaction = await Transaction.create({
       userId: data.metadata.userId,
