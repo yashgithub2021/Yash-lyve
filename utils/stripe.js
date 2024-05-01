@@ -99,7 +99,6 @@ router.post(
 
         console.log("webhook verified", event);
       } catch (err) {
-        console.error("Webhook Error:", err);
         return res.status(400).json({ error: `Webhook Error: ${err.message}` });
       }
       // Extract the object from the event.
@@ -120,7 +119,7 @@ router.post(
           try {
             // CREATE ORDER
             createTransaction(customer, data, "");
-            console.log("data", data);
+            console.log("da", data);
           } catch (err) {
             console.log(err);
           }
@@ -172,7 +171,7 @@ const createTransaction = async (customer, data, paid) => {
       customer_id: data.customer,
       transaction_id: data.id,
       payment_gateway: data.payment_method_types[0],
-      payment_amount: data.amount_total,
+      payment_amount: data.amount,
       payment_status: data.payment_status,
       charge: paid,
       bank_account_id: data.metadata.accountId,
