@@ -29,6 +29,12 @@ const {
   deleteContent,
 } = require("../content/content.controller");
 const { upload } = require("../../utils/s3");
+const {
+  getAllTransaction,
+  updateTransaction,
+  deleteTransaction,
+  getSingleTransaction,
+} = require("../transactions/transaction.controller");
 
 const adminRouter = express.Router();
 const authAdmin = authRole(["Admin"]);
@@ -85,5 +91,15 @@ adminRouter.delete("/delete/:eventId", auth, authAdmin, adminDeleteEvent);
 adminRouter
   .route("/get-event-status")
   .get(auth, authAdmin, getEventsWithStatus);
+
+// Admin Transaction routes
+adminRouter.route("/all_transactions").get(auth, authAdmin, getAllTransaction);
+adminRouter.route("/:eventId").get(auth, authAdmin, getSingleTransaction);
+adminRouter
+  .route("/update/:transactionId")
+  .put(auth, authAdmin, updateTransaction);
+adminRouter
+  .route("/delete/:transactionId")
+  .post(auth, authAdmin, deleteTransaction);
 
 module.exports = adminRouter;
