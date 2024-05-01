@@ -5,6 +5,7 @@ const { s3Uploadv2 } = require("../../utils/s3");
 const { userModel } = require("../user");
 const { Op } = require("sequelize");
 const { eventModel, genreModel } = require("../events/event.model");
+const Transaction = require("../transactions/transaction.model");
 
 exports.createUser = catchAsyncError(async (req, res, next) => {
   const image = req.file;
@@ -177,7 +178,7 @@ exports.deleteAdmin = catchAsyncError(async (req, res, next) => {
 
 // Admin dashboard
 exports.getDashboardData = catchAsyncError(async (req, res, next) => {
-  const [userCount, events, genreCount] = await Promise.all([
+  const [userCount, events, genreCount, transactionCount] = await Promise.all([
     userModel.count({
       where: {
         role: {
@@ -187,6 +188,7 @@ exports.getDashboardData = catchAsyncError(async (req, res, next) => {
     }),
     eventModel.findAll({ raw: true }),
     genreModel.count(),
+    Transaction.count(),
   ]);
 
   // Initialize counters for different event statuses
@@ -215,6 +217,7 @@ exports.getDashboardData = catchAsyncError(async (req, res, next) => {
       { key: "Users", value: userCount },
       { key: "Events", value: eventCount },
       { key: "Genres", value: genreCount },
+      { key: "Transactions", value: transactionCount },
       { key: "Live events", value: liveEvents },
       { key: "Upcoming events", value: upcomingEvents },
       { key: "Completed events", value: completedEvents },
