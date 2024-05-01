@@ -98,10 +98,10 @@ adminRouter
   .route("/get-transaction/:transactionId")
   .get(auth, authAdmin, getAdminSingleTransaction);
 adminRouter
-  .route("/update/:transactionId")
+  .route("/update-transaction/:transactionId")
   .put(auth, authAdmin, updateTransaction);
 adminRouter
-  .route("/delete/:transactionId")
-  .post(auth, authAdmin, deleteTransaction);
+  .route("/delete-transaction/:transactionId")
+  .delete(auth, authAdmin, deleteTransaction);
 
 module.exports = adminRouter;

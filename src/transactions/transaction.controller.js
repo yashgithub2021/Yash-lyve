@@ -108,7 +108,7 @@ exports.updateTransaction = catchAsyncError(async (req, res, next) => {
 });
 
 exports.deleteTransaction = catchAsyncError(async (req, res, next) => {
-  const transactionId = req.params.id;
+  const { transactionId } = req.params;
 
   const transaction = await Transaction.findByPk(transactionId);
 
