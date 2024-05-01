@@ -21,7 +21,8 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
   const { eventId } = req.params;
   const { userId } = req;
 
-  const transaction = await Transaction.findByPk(eventId, {
+  const transaction = await Transaction.findOne({
+    where: { eventId },
     include: [
       {
         model: eventModel,
