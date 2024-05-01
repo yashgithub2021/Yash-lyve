@@ -4,6 +4,7 @@ const { StatusCodes } = require("http-status-codes");
 const Transaction = require("./transaction.model");
 const { eventModel } = require("../events/event.model");
 const { userModel } = require("../user/user.model");
+const { Op } = require("sequelize");
 
 exports.getAllTransaction = catchAsyncError(async (req, res, next) => {
   const { currentPage, resultPerPage, key, status } = req.query;
@@ -103,7 +104,7 @@ exports.updateTransaction = catchAsyncError(async (req, res, next) => {
   }
   await transaction.update(req.body);
 
-  res.status(StatusCodes.CREATED).json({ transaction });
+  res.status(StatusCodes.CREATED).json({ success: true, transaction });
 });
 
 exports.deleteTransaction = catchAsyncError(async (req, res, next) => {
@@ -116,5 +117,32 @@ exports.deleteTransaction = catchAsyncError(async (req, res, next) => {
   }
   await transaction.destroy();
 
-  res.status(StatusCodes.CREATED).json({ transaction });
+  res.status(StatusCodes.CREATED).json({ success: true, transaction });
+});
+
+exports.getAdminSingleTransaction = catchAsyncError(async (req, res, next) => {
+  const { transactionId } = req.params;
+
+  const transaction = await Transaction.findOne({
+    where: { transactionId },
+    include: [
+      {
+        model: eventModel,
+        as: "event",
+      },
+      {
+        model: userModel,
+        as: "user",
+      },
+    ],
+    order: [["createdAt", "DESC"]],
+  });
+
+  if (!transaction) {
+    return next(
+      new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
+    );
+  }
+
+  res.status(StatusCodes.CREATED).json({ success: true, transaction });
 });

@@ -33,7 +33,7 @@ const {
   getAllTransaction,
   updateTransaction,
   deleteTransaction,
-  getSingleTransaction,
+  getAdminSingleTransaction,
 } = require("../transactions/transaction.controller");
 
 const adminRouter = express.Router();
@@ -94,7 +94,9 @@ adminRouter
 
 // Admin Transaction routes
 adminRouter.route("/all_transactions").get(auth, authAdmin, getAllTransaction);
-adminRouter.route("/:eventId").get(auth, authAdmin, getSingleTransaction);
+adminRouter
+  .route("/:transactionId")
+  .get(auth, authAdmin, getAdminSingleTransaction);
 adminRouter
   .route("/update/:transactionId")
   .put(auth, authAdmin, updateTransaction);
