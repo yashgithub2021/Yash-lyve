@@ -5,37 +5,27 @@ const Transaction = require("./transaction.model");
 const { eventModel } = require("../events/event.model");
 const { userModel } = require("../user/user.model");
 
-// currently, No use of this route
-exports.createTransaction = catchAsyncError(async (req, res, next) => {
-  console.log("Create transaction", req.body);
-  const { userId } = req;
-
-  const transaction = await Transaction.create(req.body);
-  res.status(201).json(transaction);
-
-  res.status(StatusCodes.CREATED).json({ event: creator });
-});
-
 exports.getAllTransaction = catchAsyncError(async (req, res, next) => {
-  const transaction = await Transaction.findAll();
+  const transactions = await Transaction.findAll();
 
-  if (!transaction) {
+  if (!transactions) {
     return next(
       new ErrorHandler("Transactions not found", StatusCodes.NOT_FOUND)
     );
   }
 
-  res.status(StatusCodes.CREATED).json({ transaction });
+  res.status(StatusCodes.CREATED).json({ success: true, transactions });
 });
 
 exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
   const { eventId } = req.params;
+  const { userId } = req;
 
   const transaction = await Transaction.findByPk(eventId, {
     include: [
       {
         model: eventModel,
-        as: "event", // Use the correct alias for the event association
+        as: "event",
         attributes: [
           "title",
           "thumbnail",
@@ -46,7 +36,7 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
       },
       {
         model: userModel,
-        as: "user", // Use the correct alias for the user association
+        as: "user",
         attributes: ["username", "avatar", "email"],
       },
     ],
@@ -59,7 +49,16 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     );
   }
 
-  res.status(StatusCodes.CREATED).json({ transaction });
+  if (userId !== transaction.userId) {
+    return next(
+      new ErrorHandler(
+        "You are not authorized to access this event",
+        StatusCodes.UNAUTHORIZED
+      )
+    );
+  }
+
+  res.status(StatusCodes.CREATED).json({ success: true, transaction });
 });
 
 exports.updateTransaction = catchAsyncError(async (req, res, next) => {
