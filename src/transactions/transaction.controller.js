@@ -21,12 +21,12 @@ exports.getAllTransaction = catchAsyncError(async (req, res, next) => {
     include: [
       {
         model: eventModel,
-        as: "transaction", // Use the correct alias for the event association
+        as: "event", // Use the correct alias for the event association
         attributes: ["title", "thumbnail"],
       },
       {
         model: userModel,
-        as: "transaction", // Use the correct alias for the user association
+        as: "user", // Use the correct alias for the user association
         attributes: ["username", "avatar", "email"],
       },
     ],
@@ -43,9 +43,29 @@ exports.getAllTransaction = catchAsyncError(async (req, res, next) => {
 });
 
 exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
-  const transactionId = req.params.id;
+  const { eventId } = req.params;
 
-  const transaction = await Transaction.findByPk(transactionId);
+  const transaction = await Transaction.findByPk(eventId, {
+    include: [
+      {
+        model: eventModel,
+        as: "event", // Use the correct alias for the event association
+        attributes: [
+          "title",
+          "thumbnail",
+          "event_duration",
+          "event_date",
+          "spots",
+        ],
+      },
+      {
+        model: userModel,
+        as: "user", // Use the correct alias for the user association
+        attributes: ["username", "avatar", "email"],
+      },
+    ],
+    order: [["createdAt", "DESC"]],
+  });
 
   if (!transaction) {
     return next(
