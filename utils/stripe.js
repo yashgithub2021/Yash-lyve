@@ -172,7 +172,7 @@ const createTransaction = async (customer, data, paid) => {
       transaction_id: data.id,
       payment_gateway: data.payment_method_types[0],
       payment_amount: data.amount,
-      payment_status: data.payment_status,
+      payment_status: data.status,
       charge: paid,
       bank_account_id: data.metadata.accountId,
     });
