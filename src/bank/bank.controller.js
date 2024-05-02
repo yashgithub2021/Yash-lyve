@@ -5,20 +5,18 @@ const { userModel } = require("../user");
 const Transaction = require("../transactions/transaction.model");
 const ErrorHandler = require("../../utils/errorHandler");
 const cron = require("node-cron");
-// const secret_key = process.env.STRIPE_SECRET_KEY;
-// const stripe = require("stripe")(secret_key);
+
 const {
   createPaymentIntent,
   addBankDetails,
   deleteBankDetails,
   updateBankAccount,
-  addCardDetails,
-  deleteCardDetails,
-  updateCardDetails,
   payCommission,
+  getPaymentIntentsByCustomer,
+  payRefund,
 } = require("../../utils/stripe");
 
-// Create payment intent for generating client secret "Checked"
+// ================= Create payment intent ==================
 exports.createSession = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
   const { eventId } = req.params;
@@ -45,119 +43,6 @@ exports.createSession = catchAsyncError(async (req, res, next) => {
   }
 
   res.status(StatusCodes.CREATED).json({ success: true, stripe });
-});
-
-// ================== Add Card methods ======================
-
-// Update payment Id and add card details on stripe "Checked"
-exports.addCard = catchAsyncError(async (req, res, next) => {
-  const { userId } = req;
-  const { payment_methodId } = req.body;
-
-  if (!payment_methodId) {
-    return next(
-      new ErrorHandler("Payment method Id not found", StatusCodes.NOT_FOUND)
-    );
-  }
-
-  const user = await userModel.findByPk(userId);
-
-  if (!user) {
-    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
-  }
-
-  let updateData = {};
-
-  if (payment_methodId) updateData.payment_method_id = payment_methodId;
-
-  await user.update(updateData);
-
-  const payment_method_id = await addCardDetails(
-    user.payment_method_id,
-    user.customerId
-  );
-
-  res.status(StatusCodes.OK).json({
-    success: true,
-    message: "Card added Successfully",
-    payment_method_id,
-  });
-});
-
-// Update payment Id and update card details on stripe "checked"
-exports.updateCard = catchAsyncError(async (req, res, next) => {
-  const { userId } = req;
-  const {
-    name,
-    email,
-    address_line1,
-    address_line2,
-    address_city,
-    address_state,
-    address_postal_code,
-    address_country,
-    exp_month,
-    exp_year,
-  } = req.body;
-
-  const user = await userModel.findByPk(userId);
-
-  if (!user) {
-    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
-  }
-
-  const payment_method_id = await updateCardDetails(
-    user.payment_method_id,
-    name,
-    email,
-    address_line1,
-    address_line2,
-    address_city,
-    address_state,
-    address_postal_code,
-    address_country,
-    exp_month,
-    exp_year
-  );
-
-  let updateData = {};
-
-  if (payment_method_id) updateData.payment_method_id = payment_method_id;
-
-  await user.update(updateData);
-
-  res.status(StatusCodes.OK).json({
-    success: true,
-    message: "Card updated Successfully",
-    payment_method_id,
-  });
-});
-
-// Update payment Id and delete card details on stripe "Checked"
-exports.deleteCard = catchAsyncError(async (req, res, next) => {
-  const { userId } = req;
-
-  const user = await userModel.findByPk(userId);
-
-  if (!user) {
-    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
-  }
-
-  const { payment_method_id } = user;
-
-  const card = await deleteCardDetails(payment_method_id);
-
-  let updateData = {};
-
-  if (card.id) updateData.payment_method_id = null;
-
-  await user.update(updateData);
-
-  res.status(StatusCodes.OK).json({
-    success: true,
-    message: "Card deleted Successfully",
-    deleted: card.id,
-  });
 });
 
 // ================== Add Bank methods ======================
@@ -327,3 +212,92 @@ function calculate60Percent(totalAmount) {
 
   return roundedSixtyPercent;
 }
+
+// Added cancel event route
+exports.cancelEvent = catchAsyncError(async (req, res, next) => {
+  const { eventId } = req.params;
+  const { userId } = req;
+
+  const event = await eventModel.findByPk(eventId);
+
+  if (!event) {
+    return res
+      .status(StatusCodes.NOT_FOUND)
+      .json({ message: "Event not found" });
+  }
+
+  // Check if the current user is the creator of the event
+  if (event.userId !== userId) {
+    return res
+      .status(StatusCodes.FORBIDDEN)
+      .json({ message: "You are not authorized to cancel this event" });
+  }
+
+  // Check if the event start time is more than 24 hours in the future
+  const eventStartTime = new Date(event.event_date).getTime();
+  const currentTime = new Date().getTime();
+  const twentyFourHoursInMilliseconds = 24 * 60 * 60 * 1000;
+
+  if (eventStartTime - currentTime <= twentyFourHoursInMilliseconds) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      message: "Event cannot be canceled within 24 hours of start time",
+    });
+  }
+
+  // Update event fields
+  let updateData = {};
+
+  // Example: Update other fields
+  const { status } = req.body;
+
+  if (status) updateData.status = status;
+
+  // Update the event
+  await event.update(updateData);
+
+  res
+    .status(StatusCodes.OK)
+    .json({ success: true, message: "Event cancelled successfully", event });
+
+  // refundAmount(event.id, next);
+});
+
+const refundAmount = async (eventId, next) => {
+  const transactions = await Transaction.findAll({
+    where: { eventId: eventId },
+  });
+
+  if (!transactions) {
+    return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
+  }
+
+  console.log(transactions);
+
+  const arr = {};
+
+  for (let transaction of transactions) {
+    if (transaction.charge === "succeeded") {
+      if (arr[transaction.eventId]) {
+        arr[transaction.eventId]["customers"] = [];
+        arr[transaction.eventId]["customers"].push(transactions.customerId);
+      }
+    }
+  }
+
+  for (let obj in arr) {
+    const paymentIntents = await getPaymentIntentsByCustomer(
+      arr[obj].customers
+    );
+
+    if (amount.id) {
+      await Transaction.update(
+        {
+          charge: "success",
+        },
+        { where: { eventId: obj } }
+      );
+    }
+  }
+
+  console.log(arr);
+};

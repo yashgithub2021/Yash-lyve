@@ -36,8 +36,11 @@ const createPaymentIntent = async (event, user) => {
   const amount = event.entry_fee;
   const title = event.title;
   const accountId = event.creator.bank_account_id;
+  const spots = event.spots;
 
   try {
+    await numberOfSpots(event.id, spots);
+
     const ephemeralKey = await stripe.ephemeralKeys.create(
       { customer: user.customerId },
       { apiVersion: "2024-04-10" }
@@ -161,98 +164,6 @@ router.post(
   }
 );
 
-// Create transaction model
-const createTransaction = async (customer, data, paid) => {
-  try {
-    const transaction = await Transaction.create({
-      userId: data.metadata.userId,
-      eventId: data.metadata.eventId,
-      customer_id: data.customer,
-      transaction_id: data.id,
-      payment_gateway: data.payment_method_types[0],
-      payment_amount: data.amount,
-      payment_status: data.status,
-      charge: paid,
-      bank_account_id: data.metadata.accountId,
-    });
-    console.log("Processed Order:", transaction);
-  } catch (err) {
-    console.log(err);
-  }
-};
-
-// ==================== Card details methods ==========================
-
-// Attach card to customer on stripe
-const addCardDetails = async (paymentMethodId, customerId) => {
-  // console.log(paymentMethodId, customerId);
-  try {
-    const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, {
-      customer: customerId,
-    });
-
-    return paymentMethod.id;
-  } catch (error) {
-    console.error("Error addind payment method on stripe:", error);
-    throw new Error(error.message);
-  }
-};
-
-// update attached card to customer on stripe
-const updateCardDetails = async (
-  paymentMethodId,
-  name,
-  email,
-  line1,
-  line2,
-  city,
-  state,
-  postal_code,
-  country,
-  exp_month,
-  exp_year
-) => {
-  // console.log(paymentMethodId, customerId);
-  try {
-    const paymentMethod = await stripe.paymentMethods.update(paymentMethodId, {
-      billing_details: {
-        name: name,
-        email: email,
-        address: {
-          line1: line1,
-          line2: line2,
-          city: city,
-          state: state,
-          postal_code: postal_code,
-          country: country,
-        },
-      },
-      card: {
-        exp_month: exp_month,
-        exp_year: exp_year,
-      },
-    });
-
-    return paymentMethod.id;
-  } catch (error) {
-    console.error("Error addind payment method on stripe:", error);
-    throw new Error(error.message);
-  }
-};
-
-// Delete attached card to customer on stripe
-const deleteCardDetails = async (paymentMethodId) => {
-  // console.log(paymentMethodId, customerId);
-  try {
-    const paymentMethod = await stripe.paymentMethods.detach(paymentMethodId);
-
-    return paymentMethod;
-  } catch (error) {
-    console.error("Error addind payment method on stripe:", error);
-    throw new Error(error.message);
-  }
-};
-
 // ====================== Bank details methods ========================
 
 // Add bank details on stripe
@@ -326,9 +237,7 @@ const addBankDetails = async (
       },
     });
 
-    console.log(connect);
-
-    // return connect.id;
+    return connect.id;
   } catch (error) {
     console.error("Error creating Stripe customer:", error);
     throw new Error(error.message);
@@ -366,12 +275,6 @@ const deleteBankDetails = async (customerId, bankAccountId) => {
 const payCommission = async (totalAmount, accountId) => {
   // console.log(totalAmount, accountId);
   try {
-    // const payout = await stripe.payouts.create({
-    //   amount: 100,
-    //   currency: "usd",
-    //   destination: "ba_1PBGuFQ12BoTcOAKH7PFnvYz",
-    // });
-    // console.log("Payout successful:", payout);
     const transfer = await stripe.transfers.create({
       amount: totalAmount,
       currency: "usd",
@@ -385,15 +288,41 @@ const payCommission = async (totalAmount, accountId) => {
   }
 };
 
+// Function to retrieve Payment Intents associated with a customer
+const getPaymentIntentsByCustomer = async (customerId, eventId) => {
+  try {
+    const paymentIntents = await stripe.paymentIntents.list({
+      customer: customerId,
+    });
+
+    let amount;
+    let paymentIntentId;
+
+    paymentIntents.data.forEach((paymentIntent) => {
+      if (paymentIntent && paymentIntent.metadata.eventId === eventId) {
+        paymentIntentId = paymentIntent.id;
+        amount = paymentIntent.amount;
+      }
+    });
+
+    return {
+      amount,
+      paymentIntentId,
+    };
+  } catch (error) {
+    // Handle errors
+    console.error("Error retrieving Payment Intents:", error);
+    throw error;
+  }
+};
+
 // pay refund to the users
-const payRefund = async (totalAmount, accountId) => {
-  // console.log(totalAmount, accountId);
+const payRefund = async (refundAmount, paymentIntentId) => {
+  // console.log(refundAmount, paymentIntentId);
   try {
     const refund = await stripe.refunds.create({
-      amount: totalAmount,
-      currency: "usd",
-      destination: accountId,
-      description: "refund to event creator",
+      payment_intent: "pi_3PBbANSC6KKmQtB00mwEd3V0",
+      amount: "3200", // The amount to refund in cents (or smallest currency unit)
     });
     return refund;
   } catch (error) {
@@ -402,15 +331,50 @@ const payRefund = async (totalAmount, accountId) => {
   }
 };
 
+// Create transaction model
+const createTransaction = async (customer, data, paid) => {
+  try {
+    const transaction = await Transaction.create({
+      userId: data.metadata.userId,
+      eventId: data.metadata.eventId,
+      customer_id: data.customer,
+      transaction_id: data.id,
+      payment_gateway: data.payment_method_types[0],
+      payment_amount: data.amount,
+      payment_status:
+        data.status === "requires_payment_method" ? "failed" : data.status,
+      charge: paid,
+      bank_account_id: data.metadata.accountId,
+    });
+    console.log("Processed Order:", transaction);
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+// Number of spots left for this event
+const numberOfSpots = async (eventId, spots) => {
+  try {
+    const transactionCount = await Transaction.distinct(eventId, {
+      payment_status: "succeeded",
+    });
+    const numberOfEventsWithPaidTransactions = transactionCount.length;
+
+    if (numberOfEventsWithPaidTransactions === spots) {
+      throw new Error("No spots left for this event");
+    }
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+
 module.exports = {
   createStripeCustomer,
-  addCardDetails,
-  deleteCardDetails,
-  updateCardDetails,
   addBankDetails,
   updateBankAccount,
   deleteBankDetails,
   createPaymentIntent,
+  getPaymentIntentsByCustomer,
   payCommission,
   payRefund,
   router,
