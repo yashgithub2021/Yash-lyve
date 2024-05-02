@@ -39,7 +39,7 @@ const createPaymentIntent = async (event, user) => {
   const spots = event.spots;
 
   try {
-    await numberOfSpots(event.id, spots);
+    // await numberOfSpots(event.id, spots);
 
     const ephemeralKey = await stripe.ephemeralKeys.create(
       { customer: user.customerId },
