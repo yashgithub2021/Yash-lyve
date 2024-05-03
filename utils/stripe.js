@@ -57,6 +57,7 @@ const createPaymentIntent = async (event, user) => {
         eventTime: event.event_time,
         eventId: event.id,
         userId: user.id,
+        thumbnail: event.thumbnail,
         amount: event.entry_fee,
         customerName: user.username,
         customerId: user.customerId,
@@ -192,19 +193,19 @@ const addBankDetails = async (
       },
     });
 
-    const bankAccount = await stripe.customers.createSource(customerId, {
-      source: token.id,
-    });
+    // const bankAccount = await stripe.customers.createSource(customerId, {
+    //   source: token.id,
+    // });
 
-    await stripe.customers.verifySource(customerId, bankAccount.id, {
-      amounts: [32, 45],
-    });
+    // await stripe.customers.verifySource(customerId, bankAccount.id, {
+    //   amounts: [32, 45],
+    // });
 
     const connect = await stripe.accounts.create({
       type: "custom",
       country: "US", // Specify 'IN' for India
       email: email, // Email associated with the account
-      // external_account: token.id,
+      external_account: token.id,
       business_type: "individual",
       business_profile: {
         mcc: "5734", // Merchant category code for retail
@@ -232,8 +233,8 @@ const addBankDetails = async (
           year: "2002",
         },
         email: email,
-        first_name: "Kuldeep",
-        last_name: "Panwar",
+        first_name: "Sococ",
+        last_name: "Sos",
         phone: "8349040873",
         ssn_last_4: "6789",
       },
@@ -264,7 +265,7 @@ const updateBankAccount = async (customerId, bankAccountId) => {
 // Delete bank details on stripe
 const deleteBankDetails = async (customerId, bankAccountId) => {
   try {
-    const deleted = await stripe.accounts.del("acct_1PBEK6PvLSSJTNsF");
+    const deleted = await stripe.accounts.del("acct_1PCJlsPoxCZVt5NW");
 
     return deleted;
   } catch (error) {
@@ -277,9 +278,15 @@ const deleteBankDetails = async (customerId, bankAccountId) => {
 const payCommission = async (
   totalAmount,
   accountId,
+  eventId,
   title,
+  event_thumbnail,
   event_date,
-  event_time
+  event_time,
+  event_status,
+  userId,
+  username,
+  avatar
 ) => {
   // console.log(totalAmount, accountId);
   try {
@@ -289,9 +296,15 @@ const payCommission = async (
       destination: accountId,
       description: "Transfer to event creator",
       metadata: {
+        eventId: eventId,
         eventName: title,
+        eventThumbanail: event_thumbnail,
         eventDate: event_date,
         eventTime: event_time,
+        eventStatus: event_status,
+        userId: userId,
+        userName: username,
+        avatar: avatar,
         amount: totalAmount,
       },
     });
