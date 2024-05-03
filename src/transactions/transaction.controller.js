@@ -150,9 +150,11 @@ exports.payoutSettlements = catchAsyncError(async (req, res, next) => {
   }
 
   let amount = 0;
+  let transaction = [];
 
   transfers.data.forEach((amnt) => {
     amount += amnt.amount / 100;
+    transaction.push(amnt.metadata);
   });
 
   res
@@ -161,18 +163,18 @@ exports.payoutSettlements = catchAsyncError(async (req, res, next) => {
 });
 
 exports.payoutTransactions = catchAsyncError(async (req, res, next) => {
-  // const { userId } = req;
+  const { userId } = req;
 
-  // const user = await userModel.findByPk(userId);
+  const user = await userModel.findByPk(userId);
 
-  // if (!user) {
-  //   return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
-  // }
+  if (!user) {
+    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
+  }
 
-  // const { customerId } = user;
+  const { customerId } = user;
 
   const transactions = await stripe.paymentIntents.list({
-    customer: "cus_PzmsKLwZUxojzi",
+    customer: customerId,
   });
 
   if (!transactions) {
