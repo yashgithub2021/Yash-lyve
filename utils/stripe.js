@@ -36,7 +36,7 @@ const createPaymentIntent = async (event, user) => {
   const amount = event.entry_fee;
   const title = event.title;
   const accountId = event.creator.bank_account_id;
-  const spots = event.spots;
+  // const spots = event.spots;
 
   try {
     // await numberOfSpots(event.id, spots);
@@ -53,6 +53,8 @@ const createPaymentIntent = async (event, user) => {
       customer: user.customerId,
       metadata: {
         eventName: title,
+        eventDate: event.event_date,
+        eventTime: event.event_time,
         eventId: event.id,
         userId: user.id,
         amount: event.entry_fee,
@@ -67,7 +69,7 @@ const createPaymentIntent = async (event, user) => {
       ephemeral_keys: ephemeralKey.secret,
       customer: user.customerId,
       pusblishable_secret:
-        "pk_test_51P3eQNSC6KKmQtB0fXyW286m0IuEF8ysClpkXKMQVVFqdRf34q5EgmbviuGVDt07FlNshVFU10edbjZmaF2OJ1VM00Z2x46noC",
+        "pk_test_51P9MZeLb055EzjLnwkZnATncBINTCbGXltCKhAyWhgnLmcaY4PehxuQaKhk5DQned7SPmCzdgRZfj4MTux0INRSg00vOH5uxP4",
     };
   } catch (error) {
     console.log(error);
@@ -272,7 +274,13 @@ const deleteBankDetails = async (customerId, bankAccountId) => {
 };
 
 // pay 60% commission to content creator
-const payCommission = async (totalAmount, accountId) => {
+const payCommission = async (
+  totalAmount,
+  accountId,
+  title,
+  event_date,
+  event_time
+) => {
   // console.log(totalAmount, accountId);
   try {
     const transfer = await stripe.transfers.create({
@@ -280,6 +288,12 @@ const payCommission = async (totalAmount, accountId) => {
       currency: "usd",
       destination: accountId,
       description: "Transfer to event creator",
+      metadata: {
+        eventName: title,
+        eventDate: event_date,
+        eventTime: event_time,
+        amount: totalAmount,
+      },
     });
     return transfer;
   } catch (error) {

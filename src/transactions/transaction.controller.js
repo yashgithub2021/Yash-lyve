@@ -5,6 +5,8 @@ const Transaction = require("./transaction.model");
 const { eventModel } = require("../events/event.model");
 const { userModel } = require("../user/user.model");
 const { Op } = require("sequelize");
+const secret_key = process.env.STRIPE_SECRET_KEY;
+const stripe = require("stripe")(secret_key);
 
 exports.getAllTransaction = catchAsyncError(async (req, res, next) => {
   const { currentPage, resultPerPage, key, status } = req.query;
@@ -55,6 +57,12 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
   const { eventId } = req.params;
   const { userId } = req;
 
+  where = {
+    status: {
+      [Op.or]: ["Upcoming", "Live"],
+    },
+  };
+
   const transaction = await Transaction.findOne({
     where: { eventId },
     include: [
@@ -66,6 +74,8 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
           "thumbnail",
           "event_duration",
           "event_date",
+          "event_time",
+          "status",
           "spots",
         ],
       },
@@ -118,6 +128,72 @@ exports.deleteTransaction = catchAsyncError(async (req, res, next) => {
   await transaction.destroy();
 
   res.status(StatusCodes.CREATED).json({ success: true, transaction });
+});
+
+exports.payoutSettlements = catchAsyncError(async (req, res, next) => {
+  const { userId } = req;
+
+  const user = await userModel.findByPk(userId);
+
+  if (!user) {
+    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
+  }
+
+  const { bank_account_id } = user;
+
+  const transfers = await stripe.transfers.list({
+    destination: bank_account_id,
+  });
+
+  if (!transfers) {
+    return next(new ErrorHandler("No tranfers found", StatusCodes.NOT_FOUND));
+  }
+
+  let amount = 0;
+
+  transfers.data.forEach((amnt) => {
+    amount += amnt.amount / 100;
+  });
+
+  res
+    .status(StatusCodes.CREATED)
+    .json({ success: true, transfers, totalRevanue: amount });
+});
+
+exports.payoutTransactions = catchAsyncError(async (req, res, next) => {
+  // const { userId } = req;
+
+  // const user = await userModel.findByPk(userId);
+
+  // if (!user) {
+  //   return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
+  // }
+
+  // const { customerId } = user;
+
+  const transactions = await stripe.paymentIntents.list({
+    customer: "cus_PzmsKLwZUxojzi",
+  });
+
+  if (!transactions) {
+    return next(
+      new ErrorHandler("Transactions not found", StatusCodes.NOT_FOUND)
+    );
+  }
+
+  let amount = 0;
+  let transaction = [];
+
+  transactions.data.forEach((amnt) => {
+    amount += amnt.amount / 100;
+    transaction.push(amnt.metadata);
+  });
+
+  res.status(StatusCodes.CREATED).json({
+    success: true,
+    totalTransactionPaid: amount,
+    transactions: transaction,
+  });
 });
 
 exports.getAdminSingleTransaction = catchAsyncError(async (req, res, next) => {
