@@ -69,7 +69,7 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
       {
         model: userModel,
         as: "creator",
-        attributes: ["username", "avatar", "email"],
+        attributes: ["id", "username", "avatar", "email"],
       },
     ],
   });
@@ -105,6 +105,18 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
       new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
     );
   }
+
+  // const currUser = await userModel.findByPk(userId);
+  // console.log("curr", currUser);
+
+  // const isAlreadyFollowing = await currUser.hasFollowing(event.creator.id);
+  // console.log(isAlreadyFollowing);
+
+  // if (isAlreadyFollowing) {
+  //   return next(
+  //     new ErrorHandler("Already following this user", StatusCodes.BAD_REQUEST)
+  //   );
+  // }
 
   const eventDetails = {
     eventId: transaction.eventId,
@@ -214,9 +226,14 @@ exports.payoutTransactions = catchAsyncError(async (req, res, next) => {
   let transaction = [];
 
   transactions.data.forEach((transactionObj) => {
-    transactionObj.metadata.status = transactionObj.status;
-    if (transactionObj.metadata.amount === "succeeded") {
-      amount += transactionObj.amount;
+    const eventDate = new Date(transactionObj.metadata.eventDate * 1000);
+    transactionObj.metadata.eventDate = eventDate.toISOString().split("T")[0];
+    transactionObj.metadata.status =
+      transactionObj.status === "requires_payment_method"
+        ? "Chancelled"
+        : transactionObj.status;
+    if (transactionObj.status === "succeeded") {
+      amount += transactionObj.amount / 100;
     }
     transaction.push(transactionObj.metadata);
   });
