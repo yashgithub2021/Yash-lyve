@@ -63,6 +63,10 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     },
   };
 
+  const event = await eventModel.findByPk(eventId, {
+    where,
+  });
+
   const transaction = await Transaction.findOne({
     where: { eventId },
     include: [
@@ -79,6 +83,7 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
           "spots",
         ],
       },
+
       {
         model: userModel,
         as: "user",
@@ -94,6 +99,21 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     );
   }
 
+  const eventDetails = {
+    eventId: transaction.eventId,
+    userId: transaction.userId,
+    title: transaction.event.title,
+    eventTime: transaction.event.event_time,
+    eventDate: transaction.event.event_date,
+    eventStatus: transaction.event.status,
+    paymentStatus: transaction.payment_status,
+    amount: transaction.amount,
+    user: transaction.user.username,
+    avatar: transaction.user.avatar,
+    spots: event.spots,
+    following: "",
+  };
+
   if (userId !== transaction.userId) {
     return next(
       new ErrorHandler(
@@ -103,7 +123,7 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     );
   }
 
-  res.status(StatusCodes.CREATED).json({ success: true, transaction });
+  res.status(StatusCodes.OK).json({ success: true, eventDetails });
 });
 
 exports.updateTransaction = catchAsyncError(async (req, res, next) => {
@@ -153,13 +173,13 @@ exports.payoutSettlements = catchAsyncError(async (req, res, next) => {
   let transaction = [];
 
   transfers.data.forEach((amnt) => {
-    amount += amnt.amount / 100;
+    amount += amnt.amount;
     transaction.push(amnt.metadata);
   });
 
   res
     .status(StatusCodes.CREATED)
-    .json({ success: true, transfers, totalRevanue: amount });
+    .json({ success: true, totalRevanue: amount, transfers });
 });
 
 exports.payoutTransactions = catchAsyncError(async (req, res, next) => {
@@ -194,7 +214,7 @@ exports.payoutTransactions = catchAsyncError(async (req, res, next) => {
     transaction.push(transactionObj.metadata);
   });
 
-  res.status(StatusCodes.CREATED).json({
+  res.status(StatusCodes.OK).json({
     success: true,
     totalTransactionPaid: amount,
     transactions: transaction,
