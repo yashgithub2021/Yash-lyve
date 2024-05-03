@@ -65,6 +65,13 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
 
   const event = await eventModel.findByPk(eventId, {
     where,
+    include: [
+      {
+        model: userModel,
+        as: "creator",
+        attributes: ["username", "avatar", "email"],
+      },
+    ],
   });
 
   const transaction = await Transaction.findOne({
@@ -108,10 +115,10 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     eventStatus: transaction.event.status,
     paymentStatus: transaction.payment_status,
     amount: transaction.amount,
-    user: transaction.user.username,
-    avatar: transaction.user.avatar,
+    userName: event.creator.username,
+    avatar: event.creator.avatar,
+    entryFees: event.entry_fee,
     spots: event.spots,
-    following: "",
   };
 
   if (userId !== transaction.userId) {
