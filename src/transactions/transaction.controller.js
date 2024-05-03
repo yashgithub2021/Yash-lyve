@@ -186,9 +186,12 @@ exports.payoutTransactions = catchAsyncError(async (req, res, next) => {
   let amount = 0;
   let transaction = [];
 
-  transactions.data.forEach((amnt) => {
-    amount += amnt.amount / 100;
-    transaction.push(amnt.metadata);
+  transactions.data.forEach((transactionObj) => {
+    transactionObj.metadata.status = transactionObj.status;
+    if (transactionObj.metadata.amount === "succeeded") {
+      amount += transactionObj.amount;
+    }
+    transaction.push(transactionObj.metadata);
   });
 
   res.status(StatusCodes.CREATED).json({
