@@ -5,6 +5,7 @@ const Transaction = require("./transaction.model");
 const { eventModel } = require("../events/event.model");
 const { userModel } = require("../user/user.model");
 const { Op } = require("sequelize");
+// const { db } = require("../../config/database");
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
 
@@ -106,17 +107,17 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     );
   }
 
-  // const currUser = await userModel.findByPk(userId);
-  // console.log("curr", currUser);
+  if (userId !== transaction.userId) {
+    return next(
+      new ErrorHandler(
+        "You are not authorized to access this event",
+        StatusCodes.UNAUTHORIZED
+      )
+    );
+  }
 
-  // const isAlreadyFollowing = await currUser.hasFollowing(event.creator.id);
-  // console.log(isAlreadyFollowing);
-
-  // if (isAlreadyFollowing) {
-  //   return next(
-  //     new ErrorHandler("Already following this user", StatusCodes.BAD_REQUEST)
-  //   );
-  // }
+  const currUser = await userModel.findByPk(userId);
+  const isAlreadyFollowing = await currUser.hasFollowing(event.creator.id);
 
   const eventDetails = {
     eventId: transaction.eventId,
@@ -131,16 +132,8 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     avatar: event.creator.avatar,
     entryFees: event.entry_fee,
     spots: event.spots,
+    hasFollowing: isAlreadyFollowing,
   };
-
-  if (userId !== transaction.userId) {
-    return next(
-      new ErrorHandler(
-        "You are not authorized to access this event",
-        StatusCodes.UNAUTHORIZED
-      )
-    );
-  }
 
   res.status(StatusCodes.OK).json({ success: true, eventDetails });
 });
@@ -166,7 +159,7 @@ exports.deleteTransaction = catchAsyncError(async (req, res, next) => {
   }
   await transaction.destroy();
 
-  res.status(StatusCodes.CREATED).json({ success: true, transaction });
+  res.status(StatusCodes.OK).json({ success: true, transaction });
 });
 
 exports.payoutSettlements = catchAsyncError(async (req, res, next) => {
@@ -191,14 +184,17 @@ exports.payoutSettlements = catchAsyncError(async (req, res, next) => {
   let amount = 0;
   let transaction = [];
 
-  transfers.data.forEach((amnt) => {
-    amount += amnt.amount;
-    transaction.push(amnt.metadata);
+  transfers.data.forEach((transactionObj) => {
+    const eventDate = new Date(transactionObj.metadata.eventDate * 1000);
+    transactionObj.metadata.eventDate = eventDate.toISOString().split("T")[0];
+    transactionObj.metadata.status = "Succeeded";
+    amount += transactionObj.amount / 100;
+    transaction.push(transactionObj.metadata);
   });
 
   res
-    .status(StatusCodes.CREATED)
-    .json({ success: true, totalRevanue: amount, transfers });
+    .status(StatusCodes.OK)
+    .json({ success: true, totalPaidTransactions: amount, transaction });
 });
 
 exports.payoutTransactions = catchAsyncError(async (req, res, next) => {
@@ -268,5 +264,5 @@ exports.getAdminSingleTransaction = catchAsyncError(async (req, res, next) => {
     );
   }
 
-  res.status(StatusCodes.CREATED).json({ success: true, transaction });
+  res.status(StatusCodes.OK).json({ success: true, transaction });
 });
