@@ -57,7 +57,7 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
   }
 
-  const { email, username, dob } = user;
+  const { email, username, dob, customerId, bank_account_id } = user;
 
   const {
     country,
@@ -76,6 +76,8 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
     routing_number,
     account_number,
     email,
+    customerId,
+    bank_account_id,
     username,
     dob
   );
@@ -130,24 +132,12 @@ exports.deleteBankAccountDetails = catchAsyncError(async (req, res, next) => {
   res.status(200).json({ success: true, deleteAccount: deleteAccount });
 });
 
-// Pay commission 60% of the total amount
-const task = cron.schedule("*/10 * * * * *", async () => {
+// Pay commission 60% of the total amount to the creator
+const task = cron.schedule("*/5 * * * * *", async () => {
   const arr = {};
   try {
     const transactions = await Transaction.findAll({
-      where: { payment_status: "paid" },
-      include: [
-        {
-          model: userModel,
-          as: "user",
-          attributes: ["id", "username", "avatar", "bank_account_id"],
-        },
-        {
-          model: eventModel,
-          as: "event",
-          attributes: ["id", "title", "thumbnail"],
-        },
-      ],
+      where: { payment_status: "complete" },
     });
 
     if (!transactions) {
@@ -156,6 +146,7 @@ const task = cron.schedule("*/10 * * * * *", async () => {
       );
     }
 
+    // Create object of event amount and bank_account_id
     for (let transaction of transactions) {
       if (!transaction.charge) {
         if (arr[transaction.eventId]) {
@@ -169,20 +160,40 @@ const task = cron.schedule("*/10 * * * * *", async () => {
       }
     }
 
-    // calculating 60% of the total amount and making transfer to the bank
+    // calculate 60% of the total amount and transfer to the bank
     for (let obj in arr) {
+      const event = await eventModel.findByPk(obj, {
+        include: [
+          {
+            model: userModel,
+            as: "creator",
+            attributes: ["id", "username", "avatar", "email"],
+          },
+        ],
+      });
       const calculatedPercentage = calculate60Percent(arr[obj].amount);
 
       const amount = await payCommission(
         calculatedPercentage,
-        arr[obj].bank_account_id
+        arr[obj].bank_account_id,
+        event.id,
+        event.title,
+        event.thumbnail,
+        event.event_date,
+        event.event_time,
+        event.status,
+        event.creator.id,
+        event.creator.username,
+        event.creator.avatar
       );
+
       console.log("ammtttt", amount);
+
       // updating the charge field
       if (amount.id) {
         await Transaction.update(
           {
-            charge: "success",
+            charge: "succeeded",
           },
           { where: { eventId: obj } }
         );

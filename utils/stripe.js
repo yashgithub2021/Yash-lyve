@@ -1,5 +1,6 @@
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
+const { eventModel } = require("../src/events/event.model");
 const Transaction = require("../src/transactions/transaction.model");
 const express = require("express");
 const router = express.Router();
@@ -181,6 +182,17 @@ const addBankDetails = async (
   customerId
 ) => {
   try {
+    const accounts = await stripe.accounts.list();
+
+    accounts.data.forEach((account) => {
+      if (
+        account_number === account.metadata.account_number &&
+        routing_number === account.metadata.routing_number
+      ) {
+        throw new Error("Account already exist");
+      }
+    });
+
     const token = await await stripe.tokens.create({
       bank_account: {
         object: "bank_account",
@@ -192,14 +204,6 @@ const addBankDetails = async (
         currency: currency,
       },
     });
-
-    // const bankAccount = await stripe.customers.createSource(customerId, {
-    //   source: token.id,
-    // });
-
-    // await stripe.customers.verifySource(customerId, bankAccount.id, {
-    //   amounts: [32, 45],
-    // });
 
     const connect = await stripe.accounts.create({
       type: "custom",
@@ -218,6 +222,12 @@ const addBankDetails = async (
       capabilities: {
         card_payments: { requested: true },
         transfers: { requested: true },
+      },
+      metadata: {
+        customerId: customerId,
+        account_number: account_number,
+        routing_number: routing_number,
+        account_holder_name: account_holder_name,
       },
       individual: {
         id_number: "123-45-6789",
@@ -265,7 +275,7 @@ const updateBankAccount = async (customerId, bankAccountId) => {
 // Delete bank details on stripe
 const deleteBankDetails = async (customerId, bankAccountId) => {
   try {
-    const deleted = await stripe.accounts.del("acct_1PCJlsPoxCZVt5NW");
+    const deleted = await stripe.accounts.del("acct_1PCNUPPxxUc1jlid");
 
     return deleted;
   } catch (error) {
@@ -274,7 +284,7 @@ const deleteBankDetails = async (customerId, bankAccountId) => {
   }
 };
 
-// pay 60% commission to content creator
+// pay 60% commission to the creator
 const payCommission = async (
   totalAmount,
   accountId,
@@ -288,10 +298,9 @@ const payCommission = async (
   username,
   avatar
 ) => {
-  // console.log(totalAmount, accountId);
   try {
     const transfer = await stripe.transfers.create({
-      amount: totalAmount,
+      amount: totalAmount * 100,
       currency: "usd",
       destination: accountId,
       description: "Transfer to event creator",
@@ -308,6 +317,7 @@ const payCommission = async (
         amount: totalAmount,
       },
     });
+    console.log("trrrr", transfer);
     return transfer;
   } catch (error) {
     console.error("Error creating transfer:", error);
@@ -361,7 +371,7 @@ const payRefund = async (refundAmount, paymentIntentId) => {
 // Create transaction model
 const createTransaction = async (customer, data, paid) => {
   try {
-    const transaction = await Transaction.create({
+    await Transaction.create({
       userId: data.metadata.userId,
       eventId: data.metadata.eventId,
       customer_id: data.customer,
@@ -373,23 +383,26 @@ const createTransaction = async (customer, data, paid) => {
       charge: paid,
       bank_account_id: data.metadata.accountId,
     });
-    console.log("Processed Order:", transaction);
-  } catch (err) {
-    console.log(err);
+    updateEventSpots(data.metadata.eventId);
+  } catch (error) {
+    throw new Error(error.message);
   }
 };
 
-// Number of spots left for this event
-const numberOfSpots = async (eventId, spots) => {
+// Number of spots left for the event
+const updateEventSpots = async (eventId) => {
   try {
-    const transactionCount = await Transaction.distinct(eventId, {
-      payment_status: "succeeded",
-    });
-    const numberOfEventsWithPaidTransactions = transactionCount.length;
+    const event = await eventModel.findByPk(eventId);
 
-    if (numberOfEventsWithPaidTransactions === spots) {
-      throw new Error("No spots left for this event");
+    if (!event) {
+      throw new Error("Event not found");
     }
+
+    let updatedSpots = {};
+
+    updatedSpots.spots = event.spots - 1;
+
+    await event.update(updatedSpots);
   } catch (error) {
     throw new Error(error.message);
   }
