@@ -195,15 +195,15 @@ const addBankDetails = async (
   // customerId
 ) => {
   try {
-    const accounts = await stripe.accounts.list();
-    accounts.data.forEach((account) => {
-      if (
-        account_number === account.metadata.account_number &&
-        routing_number === account.metadata.routing_number
-      ) {
-        throw new Error("Account already exist");
-      }
-    });
+    // const accounts = await stripe.accounts.list();
+    // accounts.data.forEach((account) => {
+    //   if (
+    //     account_number === account.metadata.account_number &&
+    //     routing_number === account.metadata.routing_number
+    //   ) {
+    //     throw new Error("Account already exist");
+    //   }
+    // });
 
     const token = await await stripe.tokens.create({
       bank_account: {
