@@ -142,7 +142,7 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     eventDate: transaction.event.event_date,
     eventStatus: transaction.event.status,
     hasPaid:
-      transaction.payment_status === "suceeded"
+      transaction.payment_status === "succeeded"
         ? true
         : transaction.payment_status === false,
     amount: transaction.amount,

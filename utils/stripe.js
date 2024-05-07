@@ -392,8 +392,8 @@ const payRefund = async (refundAmount, paymentIntentId) => {
   // console.log(refundAmount, paymentIntentId);
   try {
     const refund = await stripe.refunds.create({
-      payment_intent: "pi_3PBbANSC6KKmQtB00mwEd3V0",
-      amount: "3200", // The amount to refund in cents (or smallest currency unit)
+      payment_intent: paymentIntentId,
+      amount: refundAmount, // The amount to refund in cents (or smallest currency unit)
     });
     return refund;
   } catch (error) {
