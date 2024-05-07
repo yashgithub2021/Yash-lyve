@@ -120,6 +120,7 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
       entryFees: event.entry_fee,
       spots: event.spots,
       hasFollowing: isAlreadyFollowing,
+      hasPaid: false,
     };
     return res.status(StatusCodes.OK).json({ success: true, eventDetails });
   }
