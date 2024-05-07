@@ -206,6 +206,51 @@ exports.cancelEvent = catchAsyncError(async (req, res, next) => {
   refundAmount(event.id, next);
 });
 
+// When event canceled this function will run for refunds
+const refundAmount = async (eventId, next) => {
+  const transactions = await Transaction.findAll({
+    where: { eventId: eventId },
+  });
+
+  if (!transactions) {
+    return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
+  }
+
+  const arr = {};
+
+  for (let transaction of transactions) {
+    if (transaction.charge === "succeeded") {
+      if (arr[transaction.eventId]) {
+        arr[transaction.eventId] = {};
+        arr[transaction.eventId]["customers"] = transactions.customerId;
+      }
+    }
+  }
+
+  console.log("arr", arr);
+
+  for (let obj in arr) {
+    console.log("obj", obj);
+    const paymentIntents = await getPaymentIntentsByCustomer(
+      arr[obj].customers
+    );
+
+    const refund = payRefund(
+      paymentIntents.amount,
+      paymentIntents.paymentIntentId
+    );
+
+    if (refund.id) {
+      await Transaction.update(
+        {
+          charge: "refunded",
+        },
+        { where: { eventId: obj } }
+      );
+    }
+  }
+};
+
 // Pay commission 60% of the total amount to the creator
 const task = cron.schedule("*/5 * * * * *", async () => {
   const arr = {};
@@ -261,8 +306,6 @@ const task = cron.schedule("*/5 * * * * *", async () => {
         event.creator.avatar
       );
 
-      console.log("ammtttt", amount);
-
       // updating the charge field
       if (amount.id) {
         await Transaction.update(
@@ -284,57 +327,13 @@ task.stop();
 
 // Function for calculating 60% of the total amount
 function calculate60Percent(totalAmount) {
-  // Ensure totalAmount is a valid number
   if (typeof totalAmount !== "number" || isNaN(totalAmount)) {
     throw new Error("Total amount must be a valid number.");
   }
 
-  // Calculate 60% of the total amount
   const sixtyPercent = totalAmount * 0.6;
 
-  // Round to 2 decimal places (optional)
   const roundedSixtyPercent = Math.round(sixtyPercent * 100) / 100;
 
   return roundedSixtyPercent;
 }
-
-// When event canceled this function will run for refunds
-const refundAmount = async (eventId, next) => {
-  const transactions = await Transaction.findAll({
-    where: { eventId: eventId },
-  });
-
-  if (!transactions) {
-    return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
-  }
-
-  console.log(transactions);
-
-  const arr = {};
-
-  for (let transaction of transactions) {
-    if (transaction.charge === "succeeded") {
-      if (arr[transaction.eventId]) {
-        arr[transaction.eventId]["customers"] = [];
-        arr[transaction.eventId]["customers"].push(transactions.customerId);
-      }
-    }
-  }
-
-  for (let obj in arr) {
-    const paymentIntents = await getPaymentIntentsByCustomer(
-      arr[obj].customers
-    );
-
-    if (amount.id) {
-      await Transaction.update(
-        {
-          charge: "success",
-        },
-        { where: { eventId: obj } }
-      );
-    }
-  }
-
-  console.log(arr);
-};
