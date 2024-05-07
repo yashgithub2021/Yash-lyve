@@ -37,11 +37,8 @@ const createPaymentIntent = async (event, user) => {
   const amount = event.entry_fee;
   const title = event.title;
   const accountId = event.creator.bank_account_id;
-  // const spots = event.spots;
 
   try {
-    // await numberOfSpots(event.id, spots);
-
     const ephemeralKey = await stripe.ephemeralKeys.create(
       { customer: user.customerId },
       { apiVersion: "2024-04-10" }
@@ -79,7 +76,7 @@ const createPaymentIntent = async (event, user) => {
   }
 };
 
-//Webhook route not working yet
+//Webhook route
 router.post(
   "/webhook",
   express.raw({ type: "application/json" }),
@@ -183,7 +180,6 @@ const addBankDetails = async (
 ) => {
   try {
     const accounts = await stripe.accounts.list();
-
     accounts.data.forEach((account) => {
       if (
         account_number === account.metadata.account_number &&
@@ -249,7 +245,6 @@ const addBankDetails = async (
         ssn_last_4: "6789",
       },
     });
-
     return connect.id;
   } catch (error) {
     console.error("Error creating Stripe customer:", error);
@@ -258,14 +253,53 @@ const addBankDetails = async (
 };
 
 // Update bank account details on stripe not working
-const updateBankAccount = async (customerId, bankAccountId) => {
+const updateBankAccount = async (
+  country,
+  currency,
+  account_holder_name,
+  account_holder_type,
+  routing_number,
+  account_number,
+  customerId,
+  bankAccountId
+) => {
   try {
-    const updateAccount = await stripe.customers.updateSource(
-      customerId,
-      bankAccountId
-    );
+    const retrieveBank = await stripe.accounts.retrieve(bankAccountId);
 
-    return updateAccount;
+    if (!retrieveBank) {
+      throw new Error("Bank account does not exist");
+    }
+
+    if (
+      account_number === retrieveBank.metadata.account_number &&
+      routing_number === retrieveBank.metadata.routing_number
+    ) {
+      throw new Error("Account already exist");
+    }
+
+    const token = await await stripe.tokens.create({
+      bank_account: {
+        object: "bank_account",
+        account_holder_name: account_holder_name,
+        account_holder_type: account_holder_type,
+        account_number: account_number,
+        routing_number: routing_number,
+        country: country,
+        currency: currency,
+      },
+    });
+
+    const updateAccount = await stripe.accounts.update(bankAccountId, {
+      external_account: token.id,
+      metadata: {
+        customerId: customerId,
+        account_number: account_number,
+        routing_number: routing_number,
+        account_holder_name: account_holder_name,
+      },
+    });
+
+    return updateAccount.id;
   } catch (error) {
     console.log(error);
     throw new Error(error.message);
@@ -273,9 +307,9 @@ const updateBankAccount = async (customerId, bankAccountId) => {
 };
 
 // Delete bank details on stripe
-const deleteBankDetails = async (customerId, bankAccountId) => {
+const deleteBankDetails = async (bankAccountId) => {
   try {
-    const deleted = await stripe.accounts.del("acct_1PCNUPPxxUc1jlid");
+    const deleted = await stripe.accounts.del(bankAccountId);
 
     return deleted;
   } catch (error) {
