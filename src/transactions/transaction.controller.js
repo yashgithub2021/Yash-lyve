@@ -75,6 +75,10 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     ],
   });
 
+  if (!event) {
+    return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
+  }
+
   const transaction = await Transaction.findOne({
     where: { eventId },
     include: [
@@ -101,10 +105,23 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     order: [["createdAt", "DESC"]],
   });
 
+  const currUser = await userModel.findByPk(userId);
+  const isAlreadyFollowing = await currUser.hasFollowing(event.creator.id);
+
   if (!transaction) {
-    return next(
-      new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
-    );
+    const eventDetails = {
+      eventId: event.id,
+      title: event.title,
+      eventTime: event.event_time,
+      eventDate: event.event_date,
+      eventStatus: event.status,
+      userName: event.creator.username,
+      avatar: event.creator.avatar,
+      entryFees: event.entry_fee,
+      spots: event.spots,
+      hasFollowing: isAlreadyFollowing,
+    };
+    return res.status(StatusCodes.OK).json({ success: true, eventDetails });
   }
 
   if (userId !== transaction.userId) {
@@ -116,9 +133,6 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     );
   }
 
-  const currUser = await userModel.findByPk(userId);
-  const isAlreadyFollowing = await currUser.hasFollowing(event.creator.id);
-
   const eventDetails = {
     eventId: transaction.eventId,
     userId: transaction.userId,
@@ -126,7 +140,10 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     eventTime: transaction.event.event_time,
     eventDate: transaction.event.event_date,
     eventStatus: transaction.event.status,
-    paymentStatus: transaction.payment_status,
+    hasPaid:
+      transaction.payment_status === "suceeded"
+        ? true
+        : transaction.payment_status === false,
     amount: transaction.amount,
     userName: event.creator.username,
     avatar: event.creator.avatar,
@@ -184,13 +201,33 @@ exports.payoutSettlements = catchAsyncError(async (req, res, next) => {
   let amount = 0;
   let transaction = [];
 
-  transfers.data.forEach((transactionObj) => {
-    const eventDate = new Date(transactionObj.metadata.eventDate * 1000);
-    transactionObj.metadata.eventDate = eventDate.toISOString().split("T")[0];
-    transactionObj.metadata.status = "Succeeded";
-    amount += transactionObj.amount / 100;
-    transaction.push(transactionObj.metadata);
-  });
+  const { month, year } = req.query;
+
+  if (month && year) {
+    const filteredByMonthYear = transfers.data.filter((transactionObj) => {
+      const eventDate = new Date(transactionObj.metadata.eventDate * 1000);
+      const date = eventDate.toISOString().split("T")[0];
+      const [transactionYear, transactionMonth] = date.split("-");
+      transactionObj.metadata.eventDate = date;
+      transactionObj.metadata.status = "Success";
+      amount += transactionObj.amount / 100;
+      return (
+        Number(transactionYear) === Number(year) &&
+        Number(transactionMonth) === Number(month)
+      );
+    });
+    filteredByMonthYear.forEach((transactionObj) => {
+      transaction.push(transactionObj.metadata);
+    });
+  } else {
+    transfers.data.forEach((transactionObj) => {
+      const eventDate = new Date(transactionObj.metadata.eventDate * 1000);
+      transactionObj.metadata.eventDate = eventDate.toISOString().split("T")[0];
+      transactionObj.metadata.status = "Succeeded";
+      amount += transactionObj.amount / 100;
+      transaction.push(transactionObj.metadata);
+    });
+  }
 
   res
     .status(StatusCodes.OK)
@@ -221,18 +258,47 @@ exports.payoutTransactions = catchAsyncError(async (req, res, next) => {
   let amount = 0;
   let transaction = [];
 
-  transactions.data.forEach((transactionObj) => {
-    const eventDate = new Date(transactionObj.metadata.eventDate * 1000);
-    transactionObj.metadata.eventDate = eventDate.toISOString().split("T")[0];
-    transactionObj.metadata.status =
-      transactionObj.status === "requires_payment_method"
-        ? "Chancelled"
-        : transactionObj.status;
-    if (transactionObj.status === "succeeded") {
-      amount += transactionObj.amount / 100;
-    }
-    transaction.push(transactionObj.metadata);
-  });
+  const { month, year } = req.query;
+
+  if (month && year) {
+    const filteredByMonthYear = transactions.data.filter((transactionObj) => {
+      const eventDate = new Date(transactionObj.metadata.eventDate * 1000);
+      const date = eventDate.toISOString().split("T")[0];
+      const [transactionYear, transactionMonth] = date.split("-");
+      transactionObj.metadata.eventDate = date;
+      transactionObj.metadata.status = transactionObj.metadata.status =
+        transactionObj.status === "requires_payment_method"
+          ? "Cancelled"
+          : transactionObj.status === "succeeded"
+          ? "Success"
+          : transactionObj.status;
+      if (transactionObj.status === "succeeded") {
+        amount += transactionObj.amount / 100;
+      }
+      return (
+        Number(transactionYear) === Number(year) &&
+        Number(transactionMonth) === Number(month)
+      );
+    });
+    filteredByMonthYear.forEach((transactionObj) => {
+      transaction.push(transactionObj.metadata);
+    });
+  } else {
+    transactions.data.forEach((transactionObj) => {
+      const eventDate = new Date(transactionObj.metadata.eventDate * 1000);
+      transactionObj.metadata.eventDate = eventDate.toISOString().split("T")[0];
+      transactionObj.metadata.status =
+        transactionObj.status === "requires_payment_method"
+          ? "Cancelled"
+          : transactionObj.status === "succeeded"
+          ? "Success"
+          : transactionObj.status;
+      if (transactionObj.status === "succeeded") {
+        amount += transactionObj.amount / 100;
+      }
+      transaction.push(transactionObj.metadata);
+    });
+  }
 
   res.status(StatusCodes.OK).json({
     success: true,
