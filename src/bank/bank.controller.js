@@ -47,7 +47,7 @@ exports.createSession = catchAsyncError(async (req, res, next) => {
 
 // ================== Add Bank methods ======================
 
-// Add bank details and verifying account if not verified then bank account will be deleted "Checked"
+// Add bank details
 exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
 
@@ -88,7 +88,7 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
 
   await user.update(updateData);
 
-  res.status(200).json({ success: true, accountId });
+  res.status(200).json({ success: true, message: "Bank added successfully" });
 });
 
 // Update bank details
@@ -103,12 +103,36 @@ exports.updateBankAccountDetails = catchAsyncError(async (req, res, next) => {
 
   const { customerId, bank_account_id } = user;
 
-  const updatedAccount = await updateBankAccount(customerId, bank_account_id);
+  const {
+    country,
+    currency,
+    account_holder_name,
+    account_holder_type,
+    routing_number,
+    account_number,
+  } = req.body;
 
-  res.status(200).json({ success: true, updatedAccount });
+  const updatedAccount = await updateBankAccount(
+    country,
+    currency,
+    account_holder_name,
+    account_holder_type,
+    routing_number,
+    account_number,
+    customerId,
+    bank_account_id
+  );
+
+  let updateData = {};
+
+  if (updatedAccount) updateData.bank_account_id = updatedAccount;
+
+  await user.update(updateData);
+
+  res.status(200).json({ success: true, message: "Bank updated successfully" });
 });
 
-// delete bank details "Checked"
+// delete bank details
 exports.deleteBankAccountDetails = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
 
@@ -118,18 +142,68 @@ exports.deleteBankAccountDetails = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
   }
 
-  const { customerId, bank_account_id } = user;
+  const { bank_account_id } = user;
 
-  const deleteAccount = await deleteBankDetails(customerId, bank_account_id);
+  const deleteAccount = await deleteBankDetails(bank_account_id);
 
-  // let updatedData = {};
+  let updatedData = {};
 
-  // if (deleteAccount.deleted) {
-  //   updatedData.bank_account_id = null;
-  // }
-  // await user.update(updatedData);
+  if (deleteAccount.deleted) {
+    updatedData.bank_account_id = null;
+  }
+  await user.update(updatedData);
 
-  res.status(200).json({ success: true, deleteAccount: deleteAccount });
+  res.status(200).json({ success: true, message: "Bank deleted successfully" });
+});
+
+// =================== Cancel event route =======================
+
+exports.cancelEvent = catchAsyncError(async (req, res, next) => {
+  const { eventId } = req.params;
+  const { userId } = req;
+
+  const event = await eventModel.findByPk(eventId);
+
+  if (!event) {
+    return res
+      .status(StatusCodes.NOT_FOUND)
+      .json({ message: "Event not found" });
+  }
+
+  // Check if the current user is the creator of the event
+  if (event.userId !== userId) {
+    return res
+      .status(StatusCodes.FORBIDDEN)
+      .json({ message: "You are not authorized to cancel this event" });
+  }
+
+  // Check if the event start time is more than 24 hours in the future
+  const eventStartTime = new Date(event.event_date).getTime();
+  const currentTime = new Date().getTime();
+  const twentyFourHoursInMilliseconds = 24 * 60 * 60 * 1000;
+
+  if (eventStartTime - currentTime <= twentyFourHoursInMilliseconds) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      message: "Event cannot be canceled within 24 hours of start time",
+    });
+  }
+
+  // Update event fields
+  let updateData = {};
+
+  // Example: Update other fields
+  const { status } = req.body;
+
+  if (status) updateData.status = status;
+
+  // Update the event
+  await event.update(updateData);
+
+  res
+    .status(StatusCodes.OK)
+    .json({ success: true, message: "Event cancelled successfully", event });
+
+  refundAmount(event.id, next);
 });
 
 // Pay commission 60% of the total amount to the creator
@@ -224,55 +298,7 @@ function calculate60Percent(totalAmount) {
   return roundedSixtyPercent;
 }
 
-// Added cancel event route
-exports.cancelEvent = catchAsyncError(async (req, res, next) => {
-  const { eventId } = req.params;
-  const { userId } = req;
-
-  const event = await eventModel.findByPk(eventId);
-
-  if (!event) {
-    return res
-      .status(StatusCodes.NOT_FOUND)
-      .json({ message: "Event not found" });
-  }
-
-  // Check if the current user is the creator of the event
-  if (event.userId !== userId) {
-    return res
-      .status(StatusCodes.FORBIDDEN)
-      .json({ message: "You are not authorized to cancel this event" });
-  }
-
-  // Check if the event start time is more than 24 hours in the future
-  const eventStartTime = new Date(event.event_date).getTime();
-  const currentTime = new Date().getTime();
-  const twentyFourHoursInMilliseconds = 24 * 60 * 60 * 1000;
-
-  if (eventStartTime - currentTime <= twentyFourHoursInMilliseconds) {
-    return res.status(StatusCodes.BAD_REQUEST).json({
-      message: "Event cannot be canceled within 24 hours of start time",
-    });
-  }
-
-  // Update event fields
-  let updateData = {};
-
-  // Example: Update other fields
-  const { status } = req.body;
-
-  if (status) updateData.status = status;
-
-  // Update the event
-  await event.update(updateData);
-
-  res
-    .status(StatusCodes.OK)
-    .json({ success: true, message: "Event cancelled successfully", event });
-
-  // refundAmount(event.id, next);
-});
-
+// When event canceled this function will run for refunds
 const refundAmount = async (eventId, next) => {
   const transactions = await Transaction.findAll({
     where: { eventId: eventId },
