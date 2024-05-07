@@ -14,6 +14,6 @@ router.post("/create-session/:eventId", auth, createSession);
 router.put("/add-bank-details", auth, addBankAccountDetails);
 router.put("/update-bank-details", auth, updateBankAccountDetails);
 router.put("/delete-bank-details", auth, deleteBankAccountDetails);
-router.put("/cancel-event/:eventId", auth, cancelEvent);
+router.put("/cancel-event/:eventId", cancelEvent);
 
 module.exports = router;

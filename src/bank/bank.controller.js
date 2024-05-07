@@ -160,48 +160,48 @@ exports.deleteBankAccountDetails = catchAsyncError(async (req, res, next) => {
 
 exports.cancelEvent = catchAsyncError(async (req, res, next) => {
   const { eventId } = req.params;
-  const { userId } = req;
+  // const { userId } = req;
 
   const event = await eventModel.findByPk(eventId);
 
-  if (!event) {
-    return res
-      .status(StatusCodes.NOT_FOUND)
-      .json({ message: "Event not found" });
-  }
+  // if (!event) {
+  //   return res
+  //     .status(StatusCodes.NOT_FOUND)
+  //     .json({ message: "Event not found" });
+  // }
 
-  // Check if the current user is the creator of the event
-  if (event.userId !== userId) {
-    return res
-      .status(StatusCodes.FORBIDDEN)
-      .json({ message: "You are not authorized to cancel this event" });
-  }
+  // // Check if the current user is the creator of the event
+  // if (event.userId !== userId) {
+  //   return res
+  //     .status(StatusCodes.FORBIDDEN)
+  //     .json({ message: "You are not authorized to cancel this event" });
+  // }
 
-  // Check if the event start time is more than 24 hours in the future
-  const eventStartTime = new Date(event.event_date).getTime();
-  const currentTime = new Date().getTime();
-  const twentyFourHoursInMilliseconds = 24 * 60 * 60 * 1000;
+  // // Check if the event start time is more than 24 hours in the future
+  // const eventStartTime = new Date(event.event_date).getTime();
+  // const currentTime = new Date().getTime();
+  // const twentyFourHoursInMilliseconds = 24 * 60 * 60 * 1000;
 
-  if (eventStartTime - currentTime <= twentyFourHoursInMilliseconds) {
-    return res.status(StatusCodes.BAD_REQUEST).json({
-      message: "Event cannot be canceled within 24 hours of start time",
-    });
-  }
+  // if (eventStartTime - currentTime <= twentyFourHoursInMilliseconds) {
+  //   return res.status(StatusCodes.BAD_REQUEST).json({
+  //     message: "Event cannot be canceled within 24 hours of start time",
+  //   });
+  // }
 
-  // Update event fields
-  let updateData = {};
+  // // Update event fields
+  // let updateData = {};
 
-  // Example: Update other fields
-  const { status } = req.body;
+  // // Example: Update other fields
+  // const { status } = req.body;
 
-  if (status) updateData.status = status;
+  // if (status) updateData.status = status;
 
-  // Update the event
-  await event.update(updateData);
+  // // Update the event
+  // await event.update(updateData);
 
-  res
-    .status(StatusCodes.OK)
-    .json({ success: true, message: "Event cancelled successfully", event });
+  // res
+  //   .status(StatusCodes.OK)
+  //   .json({ success: true, message: "Event cancelled successfully", event });
 
   refundAmount(event.id, next);
 });
