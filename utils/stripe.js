@@ -134,8 +134,8 @@ router.post(
         .catch((err) => console.log(err.message));
     }
 
-    // Handle the payment_intent.payment_failed event
-    if (eventType === "payment_intent.payment_failed") {
+    // Handle the payment_intent.canceled event
+    if (eventType === "payment_intent.canceled") {
       stripe.customers
         .retrieve(data.customer)
         .then(async (customer) => {
@@ -150,8 +150,8 @@ router.post(
         .catch((err) => console.log(err.message));
     }
 
-    // Handle the payment_intent.canceled event
-    if (eventType === "payment_intent.canceled") {
+    // Handle the payment_intent.processing event
+    if (eventType === "payment_intent.processing") {
       stripe.customers
         .retrieve(data.customer)
         .then(async (customer) => {
