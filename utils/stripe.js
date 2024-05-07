@@ -167,6 +167,22 @@ router.post(
 
 // ====================== Bank details methods ========================
 
+// Get bank details
+const getBankDetails = async (bankAccountId) => {
+  try {
+    const retrieveBank = await stripe.accounts.retrieve(bankAccountId);
+
+    if (!retrieveBank) {
+      throw new Error("Bank account does not exist");
+    }
+
+    return retrieveBank;
+  } catch (error) {
+    console.log(error);
+    throw new Error(error.message);
+  }
+};
+
 // Add bank details on stripe
 const addBankDetails = async (
   country,
@@ -175,8 +191,8 @@ const addBankDetails = async (
   account_holder_type,
   routing_number,
   account_number,
-  email,
-  customerId
+  email
+  // customerId
 ) => {
   try {
     const accounts = await stripe.accounts.list();
@@ -220,10 +236,12 @@ const addBankDetails = async (
         transfers: { requested: true },
       },
       metadata: {
-        customerId: customerId,
         account_number: account_number,
         routing_number: routing_number,
         account_holder_name: account_holder_name,
+        country: country,
+        currency: currency,
+        account_holder_type: account_holder_type,
       },
       individual: {
         id_number: "123-45-6789",
@@ -445,6 +463,7 @@ const updateEventSpots = async (eventId) => {
 module.exports = {
   createStripeCustomer,
   addBankDetails,
+  getBankDetails,
   updateBankAccount,
   deleteBankDetails,
   createPaymentIntent,

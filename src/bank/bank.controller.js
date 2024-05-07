@@ -14,6 +14,7 @@ const {
   payCommission,
   getPaymentIntentsByCustomer,
   payRefund,
+  getBankDetails,
 } = require("../../utils/stripe");
 
 // ================= Create payment intent ==================
@@ -77,7 +78,6 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
     account_number,
     email,
     customerId,
-    bank_account_id,
     username,
     dob
   );
@@ -89,6 +89,31 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
   await user.update(updateData);
 
   res.status(200).json({ success: true, message: "Bank added successfully" });
+});
+
+// Add bank details
+exports.getBankAccountDetails = catchAsyncError(async (req, res, next) => {
+  const { userId } = req;
+
+  const user = await userModel.findByPk(userId);
+
+  if (!user) {
+    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
+  }
+
+  const { bank_account_id } = user;
+
+  const bankDetails = await getBankDetails(bank_account_id);
+
+  const accountDetails = {
+    bankName: bankDetails.external_accounts.data[0].bank_name,
+    accountHolder: bankDetails.external_accounts.data[0].account_holder_name,
+    accountType: bankDetails.external_accounts.data[0].account_holder_type,
+    accountNumber: bankDetails.metadata.account_number,
+    routingNumber: bankDetails.metadata.routing_number,
+  };
+
+  res.status(200).json({ success: true, bankDetails: accountDetails });
 });
 
 // Update bank details
@@ -232,7 +257,8 @@ const refundAmount = async (eventId, next) => {
   for (let obj in arr) {
     console.log("obj", obj);
     const paymentIntents = await getPaymentIntentsByCustomer(
-      arr[obj].customers
+      arr[obj].customers,
+      obj
     );
 
     const refund = payRefund(
