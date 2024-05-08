@@ -12,13 +12,13 @@ const {
   payCommissions,
 } = require("./bank.controller");
 
+router.get("/pay-commission", auth, payCommissions);
+
 router.post("/create-session/:eventId", auth, createSession);
 router.get("/get-bank-details", auth, getBankAccountDetails);
 router.put("/add-bank-details", auth, addBankAccountDetails);
 router.put("/update-bank-details", auth, updateBankAccountDetails);
 router.put("/delete-bank-details", auth, deleteBankAccountDetails);
 router.put("/cancel-event/:eventId", cancelEvent);
-
-router.get("/pay-commission", auth, payCommissions);
 
 module.exports = router;
