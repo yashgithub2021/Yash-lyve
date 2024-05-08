@@ -191,6 +191,10 @@ exports.payoutSettlements = catchAsyncError(async (req, res, next) => {
 
   const { bank_account_id } = user;
 
+  if (!bank_account_id) {
+    return next(new ErrorHandler("No bank account found"));
+  }
+
   const transfers = await stripe.transfers.list({
     destination: bank_account_id,
   });
