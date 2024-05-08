@@ -357,78 +357,81 @@ const refundAmount = async (eventId, next) => {
 };
 
 // Pay commission 60% of the total amount to the creator
-const task = cron.schedule("*/5 * * * * *", async () => {
-  const arr = {};
-  try {
-    const transactions = await Transaction.findAll({
-      where: { payment_status: "completed" },
-    });
-
-    if (!transactions) {
-      return next(
-        new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
-      );
-    }
-
-    // Create object of event amount and bank_account_id
-    for (let transaction of transactions) {
-      if (!transaction.charge) {
-        if (arr[transaction.eventId]) {
-          arr[transaction.eventId]["amount"] += transaction.payment_amount;
-        } else {
-          arr[transaction.eventId] = {};
-          arr[transaction.eventId]["amount"] = transaction.payment_amount;
-          arr[transaction.eventId]["bank_account_id"] =
-            transaction.bank_account_id;
-        }
-      }
-    }
-
-    // calculate 60% of the total amount and transfer to the bank
-    for (let obj in arr) {
-      const event = await eventModel.findByPk(obj, {
-        include: [
-          {
-            model: userModel,
-            as: "creator",
-            attributes: ["id", "username", "avatar", "email"],
-          },
-        ],
+exports.croneJob = () => {
+  cron.schedule("42 14 * * *", async () => {
+    console.log("runnnnnnnnnnnn");
+    const arr = {};
+    try {
+      const transactions = await Transaction.findAll({
+        where: { payment_status: "completed" },
       });
-      const calculatedPercentage = calculate60Percent(arr[obj].amount);
 
-      const amount = await payCommission(
-        calculatedPercentage,
-        arr[obj].bank_account_id,
-        event.id,
-        event.title,
-        event.thumbnail,
-        event.event_date,
-        event.event_time,
-        event.status,
-        event.creator.id,
-        event.creator.username,
-        event.creator.avatar
-      );
-
-      // updating the charge field
-      if (amount.id) {
-        await Transaction.update(
-          {
-            charge: "succeeded",
-          },
-          { where: { eventId: obj } }
+      if (!transactions) {
+        return next(
+          new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
         );
       }
+
+      // Create object of event amount and bank_account_id
+      for (let transaction of transactions) {
+        if (!transaction.charge) {
+          if (arr[transaction.eventId]) {
+            arr[transaction.eventId]["amount"] += transaction.payment_amount;
+          } else {
+            arr[transaction.eventId] = {};
+            arr[transaction.eventId]["amount"] = transaction.payment_amount;
+            arr[transaction.eventId]["bank_account_id"] =
+              transaction.bank_account_id;
+          }
+        }
+      }
+
+      // calculate 60% of the total amount and transfer to the bank
+      for (let obj in arr) {
+        const event = await eventModel.findByPk(obj, {
+          include: [
+            {
+              model: userModel,
+              as: "creator",
+              attributes: ["id", "username", "avatar", "email"],
+            },
+          ],
+        });
+        const calculatedPercentage = calculate60Percent(arr[obj].amount);
+
+        const amount = await payCommission(
+          calculatedPercentage,
+          arr[obj].bank_account_id,
+          event.id,
+          event.title,
+          event.thumbnail,
+          event.event_date,
+          event.event_time,
+          event.status,
+          event.creator.id,
+          event.creator.username,
+          event.creator.avatar
+        );
+
+        // updating the charge field
+        if (amount.id) {
+          await Transaction.update(
+            {
+              charge: "succeeded",
+            },
+            { where: { eventId: obj } }
+          );
+        }
+      }
+    } catch (error) {
+      console.log(error);
+      throw new Error(error.message);
     }
-  } catch (error) {
-    console.log(error);
-    throw new Error(error.message);
-  }
-});
+  });
+};
 
 // task.start();
-task.stop();
+// task.stop();
 
 // Function for calculating 60% of the total amount
 function calculate60Percent(totalAmount) {
