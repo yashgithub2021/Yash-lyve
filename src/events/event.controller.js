@@ -8,10 +8,30 @@ const { Op } = require("sequelize");
 const formattedQuery = require("../../utils/apiFeatures");
 const { Wishlist } = require("../wishlist");
 const { db } = require("../../config/database");
+const secret_key = process.env.STRIPE_SECRET_KEY;
+const stripe = require("stripe")(secret_key);
 
 exports.createEvent = catchAsyncError(async (req, res, next) => {
   console.log("Create event", req.body);
-  const { userId } = req;
+  const { userId, bank_account_id } = req;
+
+  if (!bank_account_id) {
+    return next(
+      new ErrorHandler("No bank account found", StatusCodes.NOT_FOUND)
+    );
+  }
+
+  const confirmAccount = await stripe.accounts.retrieve(bank_account_id);
+
+  if (confirmAccount.individual.verification.status !== "verified") {
+    return next(
+      new ErrorHandler(
+        "Account verification is pending",
+        StatusCodes.BAD_REQUEST
+      )
+    );
+  }
+
   const { genre } = req.body;
   const genreReq = await genreModel.findOne({ where: { name: genre } });
   const creator = await userModel.findByPk(userId);
