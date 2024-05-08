@@ -12,7 +12,7 @@ const {
   payCommissions,
 } = require("./bank.controller");
 
-router.get("/pay-commission", auth, payCommissions);
+router.put("/pay-commission", auth, payCommissions);
 
 router.post("/create-session/:eventId", auth, createSession);
 router.get("/get-bank-details", auth, getBankAccountDetails);
