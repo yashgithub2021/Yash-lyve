@@ -358,12 +358,12 @@ const refundAmount = async (eventId, next) => {
 
 // Pay commission 60% of the total amount to the creator
 exports.croneJob = () => {
-  cron.schedule("48 14 * * *", async () => {
+  cron.schedule("10 15 * * *", async () => {
     console.log("runnnnnnnnnnnn");
     const arr = {};
     try {
       const transactions = await Transaction.findAll({
-        where: { payment_status: "completed" },
+        where: { payment_status: "succeeded" },
       });
 
       if (!transactions) {
@@ -417,7 +417,7 @@ exports.croneJob = () => {
         if (amount.id) {
           await Transaction.update(
             {
-              charge: "succeeded",
+              charge: "paid",
             },
             { where: { eventId: obj } }
           );
