@@ -239,7 +239,7 @@ exports.cancelEvent = catchAsyncError(async (req, res, next) => {
   refundAmount(event.id, next);
 });
 
-// Test pay commission route
+// pay commission test route
 exports.payCommissions = catchAsyncError(async (req, res, next) => {
   const arr = {};
   try {
@@ -280,28 +280,33 @@ exports.payCommissions = catchAsyncError(async (req, res, next) => {
       });
       const calculatedPercentage = calculate60Percent(arr[obj].amount);
 
-      const amount = await payCommission(
-        calculatedPercentage,
-        arr[obj].bank_account_id,
-        event.id,
-        event.title,
-        event.thumbnail,
-        event.event_date,
-        event.event_time,
-        event.status,
-        event.creator.id,
-        event.creator.username,
-        event.creator.avatar
-      );
-
-      // updating the charge field
-      if (amount.id) {
-        await Transaction.update(
-          {
-            charge: "paid",
-          },
-          { where: { eventId: obj } }
+      if (!arr[obj].bank_account_id) {
+        return next(
+          new ErrorHandler("Bank account not found", StatusCodes.NOT_FOUND)
         );
+      } else {
+        const amount = await payCommission(
+          calculatedPercentage,
+          arr[obj].bank_account_id,
+          event.id,
+          event.title,
+          event.thumbnail,
+          event.event_date,
+          event.event_time,
+          event.status,
+          event.creator.id,
+          event.creator.username,
+          event.creator.avatar
+        );
+        // updating the charge field
+        if (amount.source_transaction === null) {
+          await Transaction.update(
+            {
+              charge: "paid",
+            },
+            { where: { eventId: obj } }
+          );
+        }
       }
     }
   } catch (error) {
@@ -358,7 +363,7 @@ const refundAmount = async (eventId, next) => {
 
 // Pay commission 60% of the total amount to the creator
 exports.croneJob = () => {
-  cron.schedule("10 15 * * *", async () => {
+  cron.schedule("10 18 * * *", async () => {
     console.log("runnnnnnnnnnnn");
     const arr = {};
     try {
@@ -399,28 +404,33 @@ exports.croneJob = () => {
         });
         const calculatedPercentage = calculate60Percent(arr[obj].amount);
 
-        const amount = await payCommission(
-          calculatedPercentage,
-          arr[obj].bank_account_id,
-          event.id,
-          event.title,
-          event.thumbnail,
-          event.event_date,
-          event.event_time,
-          event.status,
-          event.creator.id,
-          event.creator.username,
-          event.creator.avatar
-        );
-
-        // updating the charge field
-        if (amount.id) {
-          await Transaction.update(
-            {
-              charge: "paid",
-            },
-            { where: { eventId: obj } }
+        if (!arr[obj].bank_account_id) {
+          return next(
+            new ErrorHandler("Bank account not found", StatusCodes.NOT_FOUND)
           );
+        } else {
+          const amount = await payCommission(
+            calculatedPercentage,
+            arr[obj].bank_account_id,
+            event.id,
+            event.title,
+            event.thumbnail,
+            event.event_date,
+            event.event_time,
+            event.status,
+            event.creator.id,
+            event.creator.username,
+            event.creator.avatar
+          );
+          // updating the charge field
+          if (amount.source_transaction === null) {
+            await Transaction.update(
+              {
+                charge: "paid",
+              },
+              { where: { eventId: obj } }
+            );
+          }
         }
       }
     } catch (error) {
@@ -429,9 +439,6 @@ exports.croneJob = () => {
     }
   });
 };
-
-// task.start();
-// task.stop();
 
 // Function for calculating 60% of the total amount
 function calculate60Percent(totalAmount) {
