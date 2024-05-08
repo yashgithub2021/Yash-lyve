@@ -359,7 +359,7 @@ const payCommission = async (
       metadata: {
         eventId: eventId,
         eventName: title,
-        eventThumbanail: event_thumbnail,
+        thumbnail: event_thumbnail,
         eventDate: event_date,
         eventTime: event_time,
         eventStatus: event_status,
@@ -369,7 +369,6 @@ const payCommission = async (
         amount: totalAmount,
       },
     });
-    console.log("trrrr", transfer);
     return transfer;
   } catch (error) {
     console.error("Error creating transfer:", error);
