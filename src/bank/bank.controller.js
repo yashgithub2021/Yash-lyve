@@ -103,12 +103,20 @@ exports.getBankAccountDetails = catchAsyncError(async (req, res, next) => {
 
   const { bank_account_id } = user;
 
+  if (!bank_account_id) {
+    return next(
+      new ErrorHandler("No bank account found", StatusCodes.NOT_FOUND)
+    );
+  }
+
   const bankDetails = await getBankDetails(bank_account_id);
 
   const accountDetails = {
     bankName: bankDetails.external_accounts.data[0].bank_name,
     accountHolder: bankDetails.external_accounts.data[0].account_holder_name,
     accountType: bankDetails.external_accounts.data[0].account_holder_type,
+    country: bankDetails.external_accounts.data[0].country,
+    currency: bankDetails.external_accounts.data[0].currency,
     accountNumber: bankDetails.metadata.account_number,
     routingNumber: bankDetails.metadata.routing_number,
   };
