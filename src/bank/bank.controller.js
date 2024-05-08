@@ -244,7 +244,7 @@ exports.payCommissions = catchAsyncError(async (req, res, next) => {
   const arr = {};
   try {
     const transactions = await Transaction.findAll({
-      where: { payment_status: "completed" },
+      where: { payment_status: "succeeded" },
     });
 
     if (!transactions) {
