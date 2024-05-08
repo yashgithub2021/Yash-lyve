@@ -358,7 +358,7 @@ const refundAmount = async (eventId, next) => {
 
 // Pay commission 60% of the total amount to the creator
 exports.croneJob = () => {
-  cron.schedule("42 14 * * *", async () => {
+  cron.schedule("48 14 * * *", async () => {
     console.log("runnnnnnnnnnnn");
     const arr = {};
     try {
