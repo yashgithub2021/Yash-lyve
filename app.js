@@ -34,6 +34,7 @@ const {
   transactionRoute,
   bankRoute,
 } = require("./src");
+const { croneJob } = require("./src/bank/bank.controller");
 
 app.use("/api/users", userRoute);
 app.use("/api/events", eventRouter);
@@ -52,6 +53,8 @@ app.all("*", async (req, res) => {
     },
   });
 });
+
+croneJob();
 
 app.use(errorMiddleware);
 
