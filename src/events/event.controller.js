@@ -10,27 +10,29 @@ const { Wishlist } = require("../wishlist");
 const { db } = require("../../config/database");
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
+const { firebase } = require("../../utils/firebase");
+const messaging = firebase.messaging();
 
 exports.createEvent = catchAsyncError(async (req, res, next) => {
   console.log("Create event", req.body);
   const { userId, bank_account_id } = req;
 
-  if (!bank_account_id) {
-    return next(
-      new ErrorHandler("No bank account found", StatusCodes.NOT_FOUND)
-    );
-  }
+  // if (!bank_account_id) {
+  //   return next(
+  //     new ErrorHandler("No bank account found", StatusCodes.NOT_FOUND)
+  //   );
+  // }
 
-  const confirmAccount = await stripe.accounts.retrieve(bank_account_id);
+  // const confirmAccount = await stripe.accounts.retrieve(bank_account_id);
 
-  if (confirmAccount.individual.verification.status !== "verified") {
-    return next(
-      new ErrorHandler(
-        "Account verification is pending",
-        StatusCodes.BAD_REQUEST
-      )
-    );
-  }
+  // if (confirmAccount.individual.verification.status !== "verified") {
+  //   return next(
+  //     new ErrorHandler(
+  //       "Account verification is pending",
+  //       StatusCodes.BAD_REQUEST
+  //     )
+  //   );
+  // }
 
   const { genre } = req.body;
   const genreReq = await genreModel.findOne({ where: { name: genre } });
@@ -56,6 +58,61 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
   const event = await eventModel.create(eventData);
   await event.setGenre(genreReq);
   await event.setCreator(creator);
+
+  const followerIds = await db.query(
+    `SELECT "follower_user_id" 
+     FROM "Follow" 
+     WHERE "following_user_id" = '${userId}'`,
+    { type: db.QueryTypes.SELECT }
+  );
+
+  // Extract user IDs from the result
+  const userIds = followerIds.map((follower) => follower.follower_user_id);
+
+  // Fetch FCM tokens of followers
+  const followers = await userModel.findAll({
+    attributes: ['id', 'fcm_token'],
+    where: {
+      id: {
+        [Op.in]: userIds,
+      },
+      fcm_token: {
+        [Op.not]: null, // Ensure fcm_token is not null
+      },
+    },
+  });
+
+  // Extract FCM tokens from the result
+  const fcmTokens = followers.map((follower) => follower.fcm_token);
+
+  console.log("ffffffffffffffff", fcmTokens)
+
+  const notificationMessage = {
+    notification: {
+      title: "New Event Recommendation!",
+      body: "You have a new event recommendation from your favorite content creator ! Check out their profile.",
+    },
+  };
+
+  // Prepare an array to hold promises for sending notifications to each device
+  const sendPromises = [];
+
+  // Iterate over the array of dummy tokens
+  fcmTokens.forEach((token) => {
+    const message = { ...notificationMessage, token };
+    const sendPromise = messaging.send(message);
+    sendPromises.push(sendPromise);
+  });
+
+  try {
+    // Wait for all promises to resolve (i.e., all notifications are sent)
+    const responses = await Promise.all(sendPromises);
+    console.log("Push notifications sent successfully:", responses);
+    // res.status(200).send(responses);
+  } catch (error) {
+    console.error("Error sending push notifications:", error);
+    // res.status(500).send({ error: "Failed to send push notifications" });
+  }
 
   const newEvent = await eventModel.findByPk(event.id, {
     include: [{ model: genreModel, as: "genre", attributes: ["id", "name"] }],
