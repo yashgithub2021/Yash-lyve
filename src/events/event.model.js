@@ -100,13 +100,13 @@ const eventModel = db.define(
       },
     },
     status: {
-      type: DataTypes.ENUM("Upcoming", "Live", "Completed"),
+      type: DataTypes.ENUM("Upcoming", "Live", "Completed", "Cancelled"),
       defaultValue: "Upcoming", // Default value for status
       allowNull: false,
       validate: {
         isIn: {
-          args: [["Upcoming", "Live", "Completed"]],
-          msg: "Status must be one of: Upcoming, Live, or Completed",
+          args: [["Upcoming", "Live", "Completed", "Cancelled"]],
+          msg: "Status must be one of: Upcoming, Live, Completed or Cancelled",
         },
       },
     },

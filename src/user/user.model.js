@@ -28,6 +28,147 @@ const random_profile = () => {
   const idx = Math.floor(Math.random() * img_urls.length);
   return img_urls[idx];
 };
+
+const verifiedModel = db.define(
+  "Verified",
+  {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4, // Use UUIDV4 to generate UUID
+      primaryKey: true,
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        notNull: { msg: "Email is required" },
+        notEmpty: { msg: "Email is required" },
+        isEmail: function (value) {
+          if (value !== "" && !validateEmail(value)) {
+            throw new Error("Invalid Email Address");
+          }
+        },
+        isUnique: async function (value) {
+          const existingUser = await userModel.findOne({
+            where: {
+              email: value,
+              deletedAt: null,
+              isVerified: true,
+            },
+          });
+          if (existingUser) {
+            throw new Error("Email already in use!");
+          }
+        },
+      },
+    },
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        len: {
+          args: [8],
+          msg: "Password must be at least 8 characters long",
+        },
+        notNull: { msg: "Password is Required" },
+        notEmpty: { msg: "Password is Required" },
+      },
+    },
+    username: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        notNull: { msg: "Username is required" },
+        notEmpty: { msg: "Username is required" },
+      },
+    },
+    mobile_no: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        notNull: { msg: "Phone is required" },
+        notEmpty: { msg: "Phone is required" },
+        isUnique: async function (value) {
+          const existingUser = await userModel.findOne({
+            where: {
+              mobile_no: value,
+              deletedAt: null,
+              isVerified: true,
+            },
+          });
+          if (existingUser) {
+            throw new Error("Mobile number already in use!");
+          }
+        },
+      },
+    },
+    country: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        notNull: { msg: "Country is required" },
+        notEmpty: { msg: "Country is required" },
+      },
+    },
+    dob: {
+      type: DataTypes.DATE,
+      validate: {
+        isValidDate: function (value) {
+          if (!value || !isDate(value)) {
+            throw new Error("Empty or invalid date of birth.");
+          }
+        },
+      },
+    },
+    isVerified: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    role: {
+      type: DataTypes.ENUM("User", "Admin"),
+      allowNull: false,
+      validate: {
+        isIn: {
+          args: [["User", "Admin"]],
+          msg: "Role must be one of: User, or Admin",
+        },
+      },
+    },
+    gender: {
+      type: DataTypes.ENUM("Male", "Female"),
+      allowNull: false,
+      validate: {
+        notNull: { msg: "Gender is required" },
+        notEmpty: { msg: "Gender is required" },
+      },
+    },
+    avatar: {
+      type: DataTypes.STRING,
+      defaultValue: random_profile(),
+    },
+    fcm_token: {
+      type: DataTypes.STRING,
+    },
+    customerId: {
+      type: DataTypes.STRING,
+    },
+    bank_account_id: {
+      type: DataTypes.STRING,
+    },
+  },
+  {
+    timestamps: true,
+    defaultScope: {
+      attributes: { exclude: ["password"] },
+    },
+    scopes: {
+      withPassword: {
+        attributes: { include: ["password"] },
+      },
+    },
+  }
+);
+
 const userModel = db.define(
   "User",
   {
@@ -151,9 +292,6 @@ const userModel = db.define(
     customerId: {
       type: DataTypes.STRING,
     },
-    payment_method_id: {
-      type: DataTypes.STRING,
-    },
     bank_account_id: {
       type: DataTypes.STRING,
     },
@@ -171,6 +309,13 @@ const userModel = db.define(
     },
   }
 );
+
+verifiedModel.beforeSave(async (user, options) => {
+  if (user.changed("password")) {
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(user.password, salt);
+  }
+});
 
 userModel.beforeSave(async (user, options) => {
   if (user.changed("password")) {
@@ -230,7 +375,7 @@ const otpModel = db.define(
 );
 
 otpModel.prototype.isValid = async function (givenOTP) {
-  const user = await userModel.findByPk(this.userId);
+  const user = await verifiedModel.findByPk(this.userId);
   if (!user) return false;
 
   const otpValidityDuration = 2 * 60 * 1000;
@@ -244,8 +389,11 @@ otpModel.prototype.isValid = async function (givenOTP) {
   return timeDifference <= otpValidityDuration;
 };
 
-userModel.hasOne(otpModel, { foreignKey: "userId", as: "otp" });
-otpModel.belongsTo(userModel, { foreignKey: "userId", as: "user" });
+verifiedModel.hasOne(otpModel, { foreignKey: "userId", as: "otp" });
+otpModel.belongsTo(verifiedModel, { foreignKey: "userId", as: "user" });
+
+// userModel.hasOne(otpModel, { foreignKey: "verifiedUserId", as: "otps" });
+// otpModel.belongsTo(userModel, { foreignKey: "verifiedUserId", as: "users" });
 
 userModel.belongsToMany(userModel, {
   foreignKey: "following_user_id",
@@ -258,4 +406,4 @@ userModel.belongsToMany(userModel, {
   through: "Follow",
 });
 
-module.exports = { userModel, otpModel };
+module.exports = { verifiedModel, userModel, otpModel };

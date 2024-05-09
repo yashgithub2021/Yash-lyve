@@ -1,5 +1,5 @@
 const ErrorHandler = require("../../utils/errorHandler");
-const { userModel, otpModel } = require("./user.model");
+const { userModel, otpModel, verifiedModel } = require("./user.model");
 const catchAsyncError = require("../../utils/catchAsyncError");
 const sendEmail = require("../../utils/sendEmail");
 const generateOTP = require("../../utils/otpGenerator");
@@ -11,6 +11,7 @@ const { eventModel } = require("../events/event.model");
 const { notificationModel } = require("../notification");
 const { createStripeCustomer } = require("../../utils/stripe");
 const { firebase } = require("../../utils/firebase");
+const bcrypt = require("bcryptjs");
 
 const messaging = firebase.messaging();
 const getMsg = (otp) => {
@@ -70,80 +71,79 @@ exports.sendDummyToken = catchAsyncError(async (req, res, next) => {
       title: "Hello from FCM!",
       body: "This is a test message from FCM.",
     },
-    token:
-      null,
+    token: null,
   };
   messaging
     .send(message)
     .then((response) => {
       res.status(200).send(response);
-      console.log("fcm errorrrrr", response)
+      console.log("fcm errorrrrr", response);
     })
     .catch((error) => {
-      console.log("fcm errorrrrr", error)
+      console.log("fcm errorrrrr", error);
 
       res.status(400).send(error);
     });
 });
 
-exports.register = catchAsyncError(async (req, res, next) => {
-  console.log("register", req.body);
-  const { email, username, dob, fireBaseToken, mobile_no } = req.body;
-  const imageFile = req.file;
-  const imageUrl = imageFile && (await s3Uploadv2(imageFile));
-  let user;
-  const prevUser = await userModel.findOne({ email: email });
+// exports.register = catchAsyncError(async (req, res, next) => {
+//   console.log("register", req.body);
+//   const { email, username, dob, fireBaseToken, mobile_no } = req.body;
+//   const imageFile = req.file;
+//   const imageUrl = imageFile && (await s3Uploadv2(imageFile));
+//   let user;
+//   const prevUser = await userModel.findOne({ email: email });
 
-  if (!fireBaseToken) {
-    return next(
-      new ErrorHandler("Fire base token is required", StatusCodes.NOT_FOUND)
-    );
-  }
+//   if (!fireBaseToken) {
+//     return next(
+//       new ErrorHandler("Fire base token is required", StatusCodes.NOT_FOUND)
+//     );
+//   }
 
-  const stripeCustomerId = await createStripeCustomer(email, username);
+//   const stripeCustomerId = await createStripeCustomer(email, username);
 
-  if (prevUser && !prevUser.isVerified) {
-    await prevUser.update({ ...req.body });
-    user = prevUser;
-    console.log(prevUser);
-  } else {
-    user = imageUrl
-      ? await userModel.create({
-        ...req.body,
-        role: "User",
-        fcm_token: fireBaseToken,
-        dob: new Date(dob),
-        avatar: imageUrl.Location,
-      })
-      : await userModel.create({
-        ...req.body,
-        role: "User",
-        fcm_token: fireBaseToken,
-        customerId: stripeCustomerId,
-        dob: new Date(dob),
-      });
-  }
+//   if (prevUser && !prevUser.isVerified) {
+//     await prevUser.update({ ...req.body });
+//     user = prevUser;
+//     console.log(prevUser);
+//   } else {
+//     user = imageUrl
+//       ? await userModel.create({
+//         ...req.body,
+//         role: "User",
+//         fcm_token: fireBaseToken,
+//         dob: new Date(dob),
+//         avatar: imageUrl.Location,
+//       })
+//       : await userModel.create({
+//         ...req.body,
+//         role: "User",
+//         fcm_token: fireBaseToken,
+//         customerId: stripeCustomerId,
+//         dob: new Date(dob),
+//       });
+//   }
 
-  const otp = generateOTP();
+//   const otp = generateOTP();
 
-  await storeOTP({ otp, userId: user.id });
+//   await storeOTP({ otp, userId: user.id });
 
-  try {
-    const message = getMsg(otp);
-    await sendEmail({
-      email: user.email,
-      subject: "Verify Registration OTP",
-      message,
-    });
-    res
-      .status(StatusCodes.CREATED)
-      .json({ message: `OTP sent to ${user.email} successfully` });
-  } catch (error) {
-    return next(
-      new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR)
-    );
-  }
-});
+//   try {
+//     const message = getMsg(otp);
+//     await sendEmail({
+//       email: user.email,
+//       subject: "Verify Registration OTP",
+//       message,
+//     });
+//     res
+//       .status(StatusCodes.CREATED)
+//       .json({ message: `OTP sent to ${user.email} successfully` });
+//   } catch (error) {
+//     return next(
+//       new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR)
+//     );
+//   }
+// });
 
 // exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
 //   const { otp, email } = req.body;
@@ -185,14 +185,93 @@ exports.register = catchAsyncError(async (req, res, next) => {
 //   const token = user.getJWTToken();
 //   res.status(StatusCodes.CREATED).json({ success: true, user, token });
 // });
+
+exports.register = catchAsyncError(async (req, res, next) => {
+  console.log("register", req.body);
+  const { email, username, dob, fireBaseToken, mobile_no } = req.body;
+  const imageFile = req.file;
+  const imageUrl = imageFile && (await s3Uploadv2(imageFile));
+  let user;
+  const prevUser = await verifiedModel.findOne({ email: email });
+
+  if (!fireBaseToken) {
+    return next(
+      new ErrorHandler("Fire base token is required", StatusCodes.NOT_FOUND)
+    );
+  }
+
+  const stripeCustomerId = await createStripeCustomer(email, username);
+
+  if (prevUser && !prevUser.isVerified) {
+    await prevUser.update({ ...req.body });
+    user = prevUser;
+    console.log(prevUser);
+  } else {
+    user = imageUrl
+      ? await verifiedModel.create({
+          ...req.body,
+          role: "User",
+          fcm_token: fireBaseToken,
+          dob: new Date(dob),
+          avatar: imageUrl.Location,
+        })
+      : await verifiedModel.create({
+          ...req.body,
+          role: "User",
+          fcm_token: fireBaseToken,
+          customerId: stripeCustomerId,
+          dob: new Date(dob),
+        });
+  }
+
+  const otp = generateOTP();
+
+  await storeOTP({ otp, userId: user.id });
+
+  try {
+    const message = getMsg(otp);
+    await sendEmail({
+      email: user.email,
+      subject: "Verify Registration OTP",
+      message,
+    });
+    res
+      .status(StatusCodes.CREATED)
+      .json({ message: `OTP sent to ${user.email} successfully` });
+  } catch (error) {
+    return next(
+      new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR)
+    );
+  }
+});
+
 exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
   const { otp, email } = req.body;
   if (!otp || !email) {
     return next(new ErrorHandler("Missing OTP", StatusCodes.BAD_REQUEST));
   }
 
-  const user = await userModel.findOne({ where: { email } });
-  if (!user) {
+  const userVerified = await verifiedModel.findOne({
+    where: { email },
+    attributes: [
+      "id",
+      "email",
+      "password",
+      "username",
+      "mobile_no",
+      "country",
+      "dob",
+      "isVerified",
+      "role",
+      "gender",
+      "avatar",
+      "fcm_token",
+      "customerId",
+      "createdAt",
+      "updatedAt",
+    ],
+  });
+  if (!userVerified) {
     return next(
       new ErrorHandler(
         "User not found. Please check the entered email.",
@@ -226,11 +305,32 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
   }
 
   // Proceed with user verification
-  user.isVerified = true;
-  await user.save();
+  userVerified.isVerified = true;
+  await userVerified.save();
+
+  const user = await userModel.create({
+    id: userVerified.id.toString(),
+    email: userVerified.email,
+    password: userVerified.password,
+    username: userVerified.username,
+    mobile_no: userVerified.mobile_no,
+    country: userVerified.country,
+    dob: userVerified.dob,
+    isVerified: userVerified.isVerified,
+    role: userVerified.role,
+    gender: userVerified.gender,
+    avatar: userVerified.avatar,
+    fcm_token: userVerified.fcm_token,
+    customerId: userVerified.customerId,
+    payment_methodId: null,
+    createdAt: userVerified.createdAt,
+    updatedAt: userVerified.updatedAt,
+    deletedAt: null,
+  });
 
   // Destroy the OTP instance after successful verification
   await otpModel.destroy({ where: { id: otpInstance.id } });
+  // await verifiedModel.destroy({ where: { id: user.id } });
 
   // Generate JWT token for the user
   const token = user.getJWTToken();
@@ -293,7 +393,7 @@ exports.resendOTP = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("Please enter your email.", 400));
   }
 
-  const user = await userModel.findOne({ where: { email } });
+  const user = await verifiedModel.findOne({ where: { email } });
   if (!user) {
     return next(
       new ErrorHandler("Please register or User doesn't exist.", 400)
@@ -327,6 +427,7 @@ exports.forgotPassword = catchAsyncError(async (req, res, next) => {
   }
 
   const user = await userModel.findOne({ where: { email: req.body.email } });
+  console.log("usss", user);
 
   if (!user) {
     return next(
@@ -364,24 +465,47 @@ exports.forgotPassword = catchAsyncError(async (req, res, next) => {
 
 exports.verifyOtp = catchAsyncError(async (req, res, next) => {
   const { otp } = req.body;
+
   if (!otp) {
     return next(new ErrorHandler("Missing OTP", StatusCodes.BAD_REQUEST));
   }
 
   const otpInstance = await otpModel.findOne({ where: { otp } });
 
-  if (!otpInstance || otpInstance.isValid()) {
-    if (otpInstance) {
-      await otpModel.destroy({ where: { id: otpInstance.id } });
-    }
-
+  if (!otpInstance) {
+    await otpModel.destroy({ where: { id: otpInstance.id } });
     return next(
       new ErrorHandler(
-        "OTP is invalid or has been expired",
+        "Invalid OTP. Please check the entered OTP.",
         StatusCodes.BAD_REQUEST
       )
     );
   }
+
+  const otpDuration = await otpInstance.isValid();
+
+  // Check OTP validity and expiration
+  if (!otpDuration) {
+    // OTP found but expired
+    await otpModel.destroy({ where: { id: otpInstance.id } });
+    // await userModel.destroy({ where: { email } });
+    return next(
+      new ErrorHandler("OTP has been expired.", StatusCodes.BAD_REQUEST)
+    );
+  }
+
+  // if (!otpInstance || otpInstance.isValid()) {
+  //   if (otpInstance) {
+  //     await otpModel.destroy({ where: { id: otpInstance.id } });
+  //   }
+
+  //   return next(
+  //     new ErrorHandler(
+  //       "OTP is invalid or has been expired",
+  //       StatusCodes.BAD_REQUEST
+  //     )
+  //   );
+  // }
 
   await otpModel.destroy({ where: { id: otpInstance.id } });
 
@@ -708,9 +832,10 @@ exports.followCreator = catchAsyncError(async (req, res, next) => {
     // Log the error and proceed with the follow operation
   }
 
-  res.status(StatusCodes.CREATED).json({ success: true, message: "You are now following this user" });
+  res
+    .status(StatusCodes.CREATED)
+    .json({ success: true, message: "You are now following this user" });
 });
-
 
 exports.unfollowCreator = catchAsyncError(async (req, res, next) => {
   console.log("Unfollow creator", req.params);

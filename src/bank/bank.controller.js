@@ -284,7 +284,7 @@ exports.payCommissions = catchAsyncError(async (req, res, next) => {
         return next(
           new ErrorHandler("Bank account not found", StatusCodes.NOT_FOUND)
         );
-      } else {
+      } else if (event.status === "Completed") {
         const amount = await payCommission(
           calculatedPercentage,
           arr[obj].bank_account_id,
@@ -314,52 +314,6 @@ exports.payCommissions = catchAsyncError(async (req, res, next) => {
     throw new Error(error.message);
   }
 });
-
-// When event canceled this function will run for refunds
-const refundAmount = async (eventId, next) => {
-  const transactions = await Transaction.findAll({
-    where: { eventId: eventId },
-  });
-
-  if (!transactions) {
-    return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
-  }
-
-  const arr = {};
-
-  for (let transaction of transactions) {
-    if (transaction.charge === "succeeded") {
-      if (arr[transaction.eventId]) {
-        arr[transaction.eventId] = {};
-        arr[transaction.eventId]["customers"] = transactions.customerId;
-      }
-    }
-  }
-
-  console.log("arr", arr);
-
-  for (let obj in arr) {
-    console.log("obj", obj);
-    const paymentIntents = await getPaymentIntentsByCustomer(
-      arr[obj].customers,
-      obj
-    );
-
-    const refund = payRefund(
-      paymentIntents.amount,
-      paymentIntents.paymentIntentId
-    );
-
-    if (refund.id) {
-      await Transaction.update(
-        {
-          charge: "refunded",
-        },
-        { where: { eventId: obj } }
-      );
-    }
-  }
-};
 
 // Pay commission 60% of the total amount to the creator
 exports.croneJob = () => {
@@ -408,7 +362,7 @@ exports.croneJob = () => {
           return next(
             new ErrorHandler("Bank account not found", StatusCodes.NOT_FOUND)
           );
-        } else {
+        } else if (event.status === "Completed") {
           const amount = await payCommission(
             calculatedPercentage,
             arr[obj].bank_account_id,
@@ -438,6 +392,47 @@ exports.croneJob = () => {
       throw new Error(error.message);
     }
   });
+};
+
+// When event canceled this function will run for refunds
+const refundAmount = async (eventId, next) => {
+  const transactions = await Transaction.findAll({
+    where: { payment_status: "succeeded" },
+  });
+
+  if (!transactions) {
+    return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
+  }
+
+  const arr = {};
+
+  for (let transaction of transactions) {
+    if (!transaction.charge) {
+      arr[transaction.eventId] = {};
+      arr[transaction.eventId]["customers"] = transactions.customerId;
+    }
+  }
+
+  for (let obj in arr) {
+    const paymentIntents = await getPaymentIntentsByCustomer(
+      arr[obj].customers,
+      obj
+    );
+
+    const refund = payRefund(
+      paymentIntents.amount,
+      paymentIntents.paymentIntentId
+    );
+
+    if (refund.status === "succeeded") {
+      await Transaction.update(
+        {
+          charge: "refunded",
+        },
+        { where: { eventId: obj } }
+      );
+    }
+  }
 };
 
 // Function for calculating 60% of the total amount
