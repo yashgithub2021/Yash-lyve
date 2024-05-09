@@ -69,7 +69,7 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
     account_number,
   } = req.body;
 
-  const accountId = await addBankDetails(
+  const account = await addBankDetails(
     country,
     currency,
     account_holder_name,
@@ -84,11 +84,11 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
 
   let updateData = {};
 
-  if (accountId) updateData.bank_account_id = accountId;
+  if (account) updateData.bank_account_id = account.accountId;
 
   await user.update(updateData);
 
-  res.status(200).json({ success: true, message: "Bank added successfully" });
+  res.status(200).json({ success: true, account });
 });
 
 // Add bank details
@@ -158,11 +158,11 @@ exports.updateBankAccountDetails = catchAsyncError(async (req, res, next) => {
 
   let updateData = {};
 
-  if (updatedAccount) updateData.bank_account_id = updatedAccount;
+  if (updatedAccount) updateData.bank_account_id = updatedAccount.accountId;
 
   await user.update(updateData);
 
-  res.status(200).json({ success: true, message: "Bank updated successfully" });
+  res.status(200).json({ success: true, updatedAccount });
 });
 
 // delete bank details
