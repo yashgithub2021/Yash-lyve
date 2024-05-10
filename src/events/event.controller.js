@@ -11,6 +11,7 @@ const { db } = require("../../config/database");
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
 const { firebase } = require("../../utils/firebase");
+const { refundAmount } = require("../bank/bank.controller");
 const messaging = firebase.messaging();
 
 exports.createEvent = catchAsyncError(async (req, res, next) => {
@@ -25,7 +26,7 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
 
   // const confirmAccount = await stripe.accounts.retrieve(bank_account_id);
 
-  // if (confirmAccount.individual.verification.status !== "verified") {
+  // if (confirmAccount.capabilities.transfers !== "active") {
   //   return next(
   //     new ErrorHandler(
   //       "Account verification is pending",
@@ -71,7 +72,7 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
 
   // Fetch FCM tokens of followers
   const followers = await userModel.findAll({
-    attributes: ['id', 'fcm_token'],
+    attributes: ["id", "fcm_token"],
     where: {
       id: {
         [Op.in]: userIds,
@@ -85,7 +86,7 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
   // Extract FCM tokens from the result
   const fcmTokens = followers.map((follower) => follower.fcm_token);
 
-  console.log("ffffffffffffffff", fcmTokens)
+  console.log("ffffffffffffffff", fcmTokens);
 
   const notificationMessage = {
     notification: {
@@ -1018,6 +1019,55 @@ exports.getEventsWithStatus = catchAsyncError(async (req, res, next) => {
   }
 
   res.status(200).json({ success: true, events });
+});
+
+// add cancel event route
+exports.cancelEvent = catchAsyncError(async (req, res, next) => {
+  const { eventId } = req.params;
+  const { userId } = req;
+
+  const event = await eventModel.findByPk(eventId);
+
+  if (!event) {
+    return res
+      .status(StatusCodes.NOT_FOUND)
+      .json({ message: "Event not found" });
+  }
+
+  // Check if the current user is the creator of the event
+  if (event.userId !== userId) {
+    return res
+      .status(StatusCodes.FORBIDDEN)
+      .json({ message: "You are not authorized to cancel this event" });
+  }
+
+  // Check if the event start time is more than 24 hours in the future
+  const eventStartTime = new Date(event.event_date).getTime();
+  const currentTime = new Date().getTime();
+  const twentyFourHoursInMilliseconds = 24 * 60 * 60 * 1000;
+
+  if (eventStartTime - currentTime <= twentyFourHoursInMilliseconds) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      message: "Event cannot be canceled within 24 hours of start time",
+    });
+  }
+
+  // Update event fields
+  let updateData = {};
+
+  // Example: Update other fields
+  const { status } = req.body;
+
+  if (status) updateData.status = status;
+
+  // Update the event
+  await event.update(updateData);
+
+  res
+    .status(StatusCodes.OK)
+    .json({ success: true, message: "Event cancelled successfully", event });
+
+  refundAmount(event.id, next);
 });
 
 // create admin event update route

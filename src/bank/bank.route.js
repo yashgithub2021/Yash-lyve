@@ -8,9 +8,11 @@ const {
   addBankAccountDetails,
   updateBankAccountDetails,
   deleteBankAccountDetails,
-  cancelEvent,
   payCommissions,
+  loginLink,
 } = require("./bank.controller");
+
+const { cancelEvent } = require("../events/event.controller");
 
 router.put("/pay-commission", auth, payCommissions);
 
@@ -19,6 +21,7 @@ router.get("/get-bank-details", auth, getBankAccountDetails);
 router.put("/add-bank-details", auth, addBankAccountDetails);
 router.put("/update-bank-details", auth, updateBankAccountDetails);
 router.put("/delete-bank-details", auth, deleteBankAccountDetails);
+router.post("/login-link", auth, loginLink);
 router.put("/cancel-event/:eventId", cancelEvent);
 
 module.exports = router;
