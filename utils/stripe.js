@@ -376,6 +376,18 @@ const deleteBankDetails = async (bankAccountId) => {
   }
 };
 
+// Generate login link stripe
+const generateLoginLink = async (bankAccountId) => {
+  try {
+    const login = await stripe.accounts.createLoginLink(bankAccountId);
+
+    return login;
+  } catch (error) {
+    console.log(error);
+    throw new Error(error.message);
+  }
+};
+
 // pay 60% commission to the creator
 const payCommission = async (
   totalAmount,
@@ -505,6 +517,7 @@ module.exports = {
   getBankDetails,
   updateBankAccount,
   deleteBankDetails,
+  generateLoginLink,
   createPaymentIntent,
   getPaymentIntentsByCustomer,
   payCommission,

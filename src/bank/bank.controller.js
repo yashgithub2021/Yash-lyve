@@ -15,6 +15,7 @@ const {
   getPaymentIntentsByCustomer,
   payRefund,
   getBankDetails,
+  generateLoginLink,
 } = require("../../utils/stripe");
 
 // ================= Create payment intent ==================
@@ -113,12 +114,8 @@ exports.getBankAccountDetails = catchAsyncError(async (req, res, next) => {
 
   const accountDetails = {
     bankName: bankDetails.external_accounts.data[0].bank_name,
-    accountHolder: bankDetails.external_accounts.data[0].account_holder_name,
-    accountType: bankDetails.external_accounts.data[0].account_holder_type,
     country: bankDetails.external_accounts.data[0].country,
     currency: bankDetails.external_accounts.data[0].currency,
-    accountNumber: bankDetails.metadata.account_number,
-    routingNumber: bankDetails.metadata.routing_number,
   };
 
   res.status(200).json({ success: true, bankDetails: accountDetails });
@@ -189,55 +186,24 @@ exports.deleteBankAccountDetails = catchAsyncError(async (req, res, next) => {
   res.status(200).json({ success: true, message: "Bank deleted successfully" });
 });
 
-// =================== Cancel event route =======================
+// add login screen for creator
+exports.loginLink = catchAsyncError(async (req, res, next) => {
+  const { userId } = req;
 
-exports.cancelEvent = catchAsyncError(async (req, res, next) => {
-  const { eventId } = req.params;
-  // const { userId } = req;
+  const user = await userModel.findByPk(userId);
 
-  const event = await eventModel.findByPk(eventId);
-
-  if (!event) {
-    return res
-      .status(StatusCodes.NOT_FOUND)
-      .json({ message: "Event not found" });
+  if (!user) {
+    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
   }
 
-  // Check if the current user is the creator of the event
-  if (event.userId !== userId) {
-    return res
-      .status(StatusCodes.FORBIDDEN)
-      .json({ message: "You are not authorized to cancel this event" });
-  }
+  const { bank_account_id } = user;
 
-  // Check if the event start time is more than 24 hours in the future
-  const eventStartTime = new Date(event.event_date).getTime();
-  const currentTime = new Date().getTime();
-  const twentyFourHoursInMilliseconds = 24 * 60 * 60 * 1000;
+  const loginLink = await generateLoginLink(bank_account_id);
 
-  if (eventStartTime - currentTime <= twentyFourHoursInMilliseconds) {
-    return res.status(StatusCodes.BAD_REQUEST).json({
-      message: "Event cannot be canceled within 24 hours of start time",
-    });
-  }
-
-  // Update event fields
-  let updateData = {};
-
-  // Example: Update other fields
-  const { status } = req.body;
-
-  if (status) updateData.status = status;
-
-  // Update the event
-  await event.update(updateData);
-
-  res
-    .status(StatusCodes.OK)
-    .json({ success: true, message: "Event cancelled successfully", event });
-
-  refundAmount(event.id, next);
+  res.status(200).json({ success: true, loginLink });
 });
+
+// =================== Cancel event route =======================
 
 // pay commission test route
 exports.payCommissions = catchAsyncError(async (req, res, next) => {
@@ -317,7 +283,7 @@ exports.payCommissions = catchAsyncError(async (req, res, next) => {
 
 // Pay commission 60% of the total amount to the creator
 exports.croneJob = () => {
-  cron.schedule("00 01 * * *", async () => {
+  cron.schedule("10 18 * * *", async () => {
     console.log("runnnnnnnnnnnn");
     const arr = {};
     try {
@@ -395,7 +361,7 @@ exports.croneJob = () => {
 };
 
 // When event canceled this function will run for refunds
-const refundAmount = async (eventId, next) => {
+exports.refundAmount = async (eventId, next) => {
   const transactions = await Transaction.findAll({
     where: { eventId: eventId },
   });
@@ -407,9 +373,10 @@ const refundAmount = async (eventId, next) => {
   const arr = {};
 
   for (let transaction of transactions) {
-    if (!transaction.charge) {
+    if (transaction.payment_status === "succeeded") {
       arr[transaction.eventId] = {};
       arr[transaction.eventId]["customers"] = transactions.customerId;
+      arr[transaction.eventId]["payment_status"] = transactions.payment_status;
     }
   }
 
@@ -419,18 +386,21 @@ const refundAmount = async (eventId, next) => {
       obj
     );
 
-    const refund = payRefund(
-      paymentIntents.amount,
-      paymentIntents.paymentIntentId
-    );
-
-    if (refund.status === "succeeded") {
-      await Transaction.update(
-        {
-          charge: "refunded",
-        },
-        { where: { eventId: obj } }
+    if (arr[obj].payment_status === "succeeded") {
+      const refund = payRefund(
+        paymentIntents.amount,
+        paymentIntents.paymentIntentId
       );
+
+      // updating charge field to refunded
+      if (refund.status === "succeeded") {
+        await Transaction.update(
+          {
+            charge: "refunded",
+          },
+          { where: { eventId: obj } }
+        );
+      }
     }
   }
 };
