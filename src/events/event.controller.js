@@ -16,24 +16,30 @@ const messaging = firebase.messaging();
 
 exports.createEvent = catchAsyncError(async (req, res, next) => {
   console.log("Create event", req.body);
-  const { userId, bank_account_id } = req;
+  const { userId } = req;
 
-  // if (!bank_account_id) {
-  //   return next(
-  //     new ErrorHandler("No bank account found", StatusCodes.NOT_FOUND)
-  //   );
-  // }
+  const user = await userModel.findByPk(userId);
 
-  // const confirmAccount = await stripe.accounts.retrieve(bank_account_id);
+  if (!user) {
+    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
+  }
 
-  // if (confirmAccount.capabilities.transfers !== "active") {
-  //   return next(
-  //     new ErrorHandler(
-  //       "Account verification is pending",
-  //       StatusCodes.BAD_REQUEST
-  //     )
-  //   );
-  // }
+  if (!user.bank_account_id) {
+    return next(
+      new ErrorHandler("No bank account found", StatusCodes.NOT_FOUND)
+    );
+  }
+
+  const confirmAccount = await stripe.accounts.retrieve(user.bank_account_id);
+
+  if (confirmAccount.capabilities.transfers !== "active") {
+    return next(
+      new ErrorHandler(
+        "Account verification is pending",
+        StatusCodes.BAD_REQUEST
+      )
+    );
+  }
 
   const { genre } = req.body;
   const genreReq = await genreModel.findOne({ where: { name: genre } });
@@ -61,8 +67,8 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
   await event.setCreator(creator);
 
   const followerIds = await db.query(
-    `SELECT "follower_user_id" 
-     FROM "Follow" 
+    `SELECT "follower_user_id"
+     FROM "Follow"
      WHERE "following_user_id" = '${userId}'`,
     { type: db.QueryTypes.SELECT }
   );
