@@ -922,7 +922,7 @@ exports.getCreatorFollowers = catchAsyncError(async (req, res, next) => {
 
   const followers = await userModel.findAll({
     ...query,
-    attributes: ["id", "username", "avatar"],
+    attributes: ["id", "username", "avatar", "createdAt"],
   });
 
   // Get the following users for the current user
@@ -993,7 +993,7 @@ exports.getCreatorFollowing = catchAsyncError(async (req, res, next) => {
 
   const followings = await userModel.findAll({
     ...query,
-    attributes: ["id", "username", "avatar"],
+    attributes: ["id", "username", "avatar", "createdAt"],
   });
 
   // Get the following users for the current user
