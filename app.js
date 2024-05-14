@@ -5,7 +5,7 @@ const dotenv = require("dotenv");
 const app = express();
 
 const path = "./config/config.env";
-// const path = "./config/local.env";
+// const path = "./config/live.env";
 dotenv.config({ path });
 
 const { router } = require("./utils/stripe");
