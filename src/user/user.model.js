@@ -318,7 +318,8 @@ verifiedModel.beforeSave(async (user, options) => {
 });
 
 userModel.beforeSave(async (user, options) => {
-  if (user.changed("password")) {
+  if (user.changed("password") && !user.password.startsWith("$2")) {
+    // Check if the password is not already hashed
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(user.password, salt);
   }
@@ -329,6 +330,7 @@ userModel.prototype.getJWTToken = function () {
 };
 
 userModel.prototype.comparePassword = async function (enteredPassword) {
+  console.log("password", enteredPassword, this.password);
   return await bcrypt.compare(enteredPassword, this.password);
 };
 

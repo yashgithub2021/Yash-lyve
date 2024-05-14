@@ -318,20 +318,26 @@ exports.croneJob = () => {
             {
               model: userModel,
               as: "creator",
-              attributes: ["id", "username", "avatar", "email"],
+              attributes: [
+                "id",
+                "username",
+                "avatar",
+                "email",
+                "bank_account_id",
+              ],
             },
           ],
         });
         const calculatedPercentage = calculate60Percent(arr[obj].amount);
 
-        if (!arr[obj].bank_account_id) {
+        if (!event.bank_account_id) {
           return next(
             new ErrorHandler("Bank account not found", StatusCodes.NOT_FOUND)
           );
         } else if (event.status === "Completed") {
           const amount = await payCommission(
             calculatedPercentage,
-            arr[obj].bank_account_id,
+            event.bank_account_id,
             event.id,
             event.title,
             event.thumbnail,
