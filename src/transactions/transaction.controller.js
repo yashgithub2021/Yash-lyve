@@ -5,6 +5,7 @@ const Transaction = require("./transaction.model");
 const { eventModel } = require("../events/event.model");
 const { userModel } = require("../user/user.model");
 const { Op } = require("sequelize");
+const { Wishlist } = require("../wishlist");
 // const { db } = require("../../config/database");
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
@@ -105,6 +106,14 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     order: [["createdAt", "DESC"]],
   });
 
+  const isWishlist = await Wishlist.findOne({
+    where: { userId, eventId, isWishlisted: true },
+  });
+
+  const isLike = await Wishlist.findOne({
+    where: { userId, eventId, liked: true },
+  });
+
   const currUser = await userModel.findByPk(userId);
   const isAlreadyFollowing = await currUser.hasFollowing(event.creator.id);
 
@@ -121,6 +130,8 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
       spots: event.spots,
       hasFollowing: isAlreadyFollowing,
       hasPaid: false,
+      isWishlisted: isWishlist === null ? false : true,
+      isLiked: isLike === null ? false : true,
     };
     return res.status(StatusCodes.OK).json({ success: true, eventDetails });
   }
@@ -151,6 +162,8 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     entryFees: event.entry_fee,
     spots: event.spots,
     hasFollowing: isAlreadyFollowing,
+    isWishlisted: isWishlist === null ? false : true,
+    isLiked: isLike === null ? false : true,
   };
 
   res.status(StatusCodes.OK).json({ success: true, eventDetails });
