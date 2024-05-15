@@ -348,6 +348,9 @@ exports.croneJob = () => {
             event.creator.username,
             event.creator.avatar
           );
+
+          console.log(amount);
+
           // updating the charge field
           if (amount.source_transaction === null) {
             await Transaction.update(
