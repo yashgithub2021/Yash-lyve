@@ -184,86 +184,8 @@ const getBankDetails = async (bankAccountId) => {
 };
 
 // Add bank details on stripe
-const addBankDetails = async (
-  country,
-  currency,
-  account_holder_name,
-  account_holder_type,
-  routing_number,
-  account_number,
-  email
-  // customerId
-) => {
+const addBankDetails = async (country) => {
   try {
-    // const accounts = await stripe.accounts.list();
-    // accounts.data.forEach((account) => {
-    //   if (
-    //     account_number === account.metadata.account_number &&
-    //     routing_number === account.metadata.routing_number
-    //   ) {
-    //     throw new Error("Account already exist");
-    //   }
-    // });
-
-    // const token = await await stripe.tokens.create({
-    //   bank_account: {
-    //     object: "bank_account",
-    //     account_holder_name: account_holder_name,
-    //     account_holder_type: account_holder_type,
-    //     account_number: account_number,
-    //     routing_number: routing_number,
-    //     country: country,
-    //     currency: currency,
-    //   },
-    // });
-
-    // const connect = await stripe.accounts.create({
-    //   type: "express",
-    //   country: "US", // Specify 'IN' for India
-    //   email: email, // Email associated with the account
-    //   external_account: token.id,
-    //   business_type: "individual",
-    //   business_profile: {
-    //     mcc: "5734", // Merchant category code for retail
-    //     url: "https://lyvechat.com", // Business website URL
-    //   },
-    //   tos_acceptance: {
-    //     date: 1609798905,
-    //     ip: "8.8.8.8", // IP address of the connected account owner
-    //   },
-    //   capabilities: {
-    //     card_payments: { requested: true },
-    //     transfers: { requested: true },
-    //   },
-    //   metadata: {
-    //     account_number: account_number,
-    //     routing_number: routing_number,
-    //     account_holder_name: account_holder_name,
-    //     country: country,
-    //     currency: currency,
-    //     account_holder_type: account_holder_type,
-    //   },
-    //   individual: {
-    //     id_number: "000000000",
-    //     address: {
-    //       city: "new york",
-    //       line1: "new york",
-    //       postal_code: "10011",
-    //       state: "new york",
-    //     },
-    //     dob: {
-    //       day: "01",
-    //       month: "01",
-    //       year: "1901",
-    //     },
-    //     email: email,
-    //     first_name: "Sococ",
-    //     last_name: "Sos",
-    //     phone: "8349040873",
-    //     ssn_last_4: "0000",
-    //   },
-    // });
-
     const connect = await stripe.accounts.create({
       country: country,
       type: "express",
@@ -281,6 +203,8 @@ const addBankDetails = async (
       },
     });
 
+    await stripe.accounts.listExternalAccounts(connect.id);
+
     const account = await stripe.accountLinks.create({
       account: connect.id,
       refresh_url: "https://example.com/reauth",
@@ -294,72 +218,6 @@ const addBankDetails = async (
     };
   } catch (error) {
     console.error("Error creating account:", error);
-    throw new Error(error.message);
-  }
-};
-
-// Update bank account details on stripe not working
-const updateBankAccount = async (
-  country,
-  currency,
-  account_holder_name,
-  account_holder_type,
-  routing_number,
-  account_number,
-  customerId,
-  bankAccountId
-) => {
-  try {
-    // const retrieveBank = await stripe.accounts.retrieve(bankAccountId);
-
-    // if (!retrieveBank) {
-    //   throw new Error("Bank account does not exist");
-    // }
-
-    // if (
-    //   account_number === retrieveBank.metadata.account_number &&
-    //   routing_number === retrieveBank.metadata.routing_number
-    // ) {
-    //   throw new Error("Account already exist");
-    // }
-
-    // const token = await await stripe.tokens.create({
-    //   bank_account: {
-    //     object: "bank_account",
-    //     account_holder_name: account_holder_name,
-    //     account_holder_type: account_holder_type,
-    //     account_number: account_number,
-    //     routing_number: routing_number,
-    //     country: country,
-    //     currency: currency,
-    //   },
-    // });
-
-    // const updateAccount = await stripe.accounts.update(bankAccountId, {
-    //   external_account: token.id,
-    //   metadata: {
-    //     customerId: customerId,
-    //     account_number: account_number,
-    //     routing_number: routing_number,
-    //     account_holder_name: account_holder_name,
-    //   },
-    // });
-
-    const updateConnect = await stripe.accounts.update("acct_1PEUGlPvrfe7u3sH");
-
-    const account = await stripe.accountLinks.create({
-      account: updateConnect.id,
-      refresh_url: "https://example.com/reauth",
-      return_url: "https://example.com/return",
-      type: "account_onboarding",
-    });
-
-    return {
-      accountId: updateConnect.id,
-      accountLink: account,
-    };
-  } catch (error) {
-    console.log(error);
     throw new Error(error.message);
   }
 };
@@ -515,7 +373,6 @@ module.exports = {
   createStripeCustomer,
   addBankDetails,
   getBankDetails,
-  updateBankAccount,
   deleteBankDetails,
   generateLoginLink,
   createPaymentIntent,
