@@ -328,16 +328,18 @@ exports.croneJob = () => {
             },
           ],
         });
-        const calculatedPercentage = calculate60Percent(arr[obj].amount);
 
-        if (!event.bank_account_id) {
+        if (!arr[obj].bank_account_id) {
           return next(
             new ErrorHandler("Bank account not found", StatusCodes.NOT_FOUND)
           );
         } else if (event.status === "Completed") {
+          const calculatedPercentage = await calculate60Percent(
+            arr[obj].amount
+          );
           const amount = await payCommission(
             calculatedPercentage,
-            event.bank_account_id,
+            arr[obj].bank_account_id,
             event.id,
             event.title,
             event.thumbnail,
@@ -415,7 +417,7 @@ exports.refundAmount = async (eventId, next) => {
 };
 
 // Function for calculating 60% of the total amount
-function calculate60Percent(totalAmount) {
+async function calculate60Percent(totalAmount) {
   if (typeof totalAmount !== "number" || isNaN(totalAmount)) {
     throw new Error("Total amount must be a valid number.");
   }
