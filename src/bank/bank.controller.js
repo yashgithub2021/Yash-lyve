@@ -10,7 +10,6 @@ const {
   createPaymentIntent,
   addBankDetails,
   deleteBankDetails,
-  updateBankAccount,
   payCommission,
   getPaymentIntentsByCustomer,
   payRefund,
@@ -121,47 +120,6 @@ exports.getBankAccountDetails = catchAsyncError(async (req, res, next) => {
   res.status(200).json({ success: true, bankDetails: accountDetails });
 });
 
-// Update bank details
-exports.updateBankAccountDetails = catchAsyncError(async (req, res, next) => {
-  const { userId } = req;
-
-  const user = await userModel.findByPk(userId);
-
-  if (!user) {
-    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
-  }
-
-  const { customerId, bank_account_id } = user;
-
-  const {
-    country,
-    currency,
-    account_holder_name,
-    account_holder_type,
-    routing_number,
-    account_number,
-  } = req.body;
-
-  const updatedAccount = await updateBankAccount(
-    country,
-    currency,
-    account_holder_name,
-    account_holder_type,
-    routing_number,
-    account_number,
-    customerId,
-    bank_account_id
-  );
-
-  let updateData = {};
-
-  if (updatedAccount) updateData.bank_account_id = updatedAccount.accountId;
-
-  await user.update(updateData);
-
-  res.status(200).json({ success: true, updatedAccount });
-});
-
 // delete bank details
 exports.deleteBankAccountDetails = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
@@ -186,7 +144,7 @@ exports.deleteBankAccountDetails = catchAsyncError(async (req, res, next) => {
   res.status(200).json({ success: true, message: "Bank deleted successfully" });
 });
 
-// add login screen for creator
+// Login Link screen for event creator
 exports.loginLink = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
 
@@ -203,87 +161,9 @@ exports.loginLink = catchAsyncError(async (req, res, next) => {
   res.status(200).json({ success: true, loginLink });
 });
 
-// =================== Cancel event route =======================
-
-// pay commission test route
-exports.payCommissions = catchAsyncError(async (req, res, next) => {
-  const arr = {};
-  try {
-    const transactions = await Transaction.findAll({
-      where: { payment_status: "succeeded" },
-    });
-
-    if (!transactions) {
-      return next(
-        new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
-      );
-    }
-
-    // Create object of event amount and bank_account_id
-    for (let transaction of transactions) {
-      if (!transaction.charge) {
-        if (arr[transaction.eventId]) {
-          arr[transaction.eventId]["amount"] += transaction.payment_amount;
-        } else {
-          arr[transaction.eventId] = {};
-          arr[transaction.eventId]["amount"] = transaction.payment_amount;
-          arr[transaction.eventId]["bank_account_id"] =
-            transaction.bank_account_id;
-        }
-      }
-    }
-
-    // calculate 60% of the total amount and transfer to the bank
-    for (let obj in arr) {
-      const event = await eventModel.findByPk(obj, {
-        include: [
-          {
-            model: userModel,
-            as: "creator",
-            attributes: ["id", "username", "avatar", "email"],
-          },
-        ],
-      });
-      const calculatedPercentage = calculate60Percent(arr[obj].amount);
-
-      if (!arr[obj].bank_account_id) {
-        return next(
-          new ErrorHandler("Bank account not found", StatusCodes.NOT_FOUND)
-        );
-      } else if (event.status === "Completed") {
-        const amount = await payCommission(
-          calculatedPercentage,
-          arr[obj].bank_account_id,
-          event.id,
-          event.title,
-          event.thumbnail,
-          event.event_date,
-          event.event_time,
-          event.status,
-          event.creator.id,
-          event.creator.username,
-          event.creator.avatar
-        );
-        // updating the charge field
-        if (amount.source_transaction === null) {
-          await Transaction.update(
-            {
-              charge: "paid",
-            },
-            { where: { eventId: obj } }
-          );
-        }
-      }
-    }
-  } catch (error) {
-    console.log(error);
-    throw new Error(error.message);
-  }
-});
-
 // Pay commission 60% of the total amount to the creator
 exports.croneJob = () => {
-  cron.schedule("20 13 * * *", async () => {
+  cron.schedule("09 14 * * *", async () => {
     console.log("runnnnnnnnnnnn");
     const arr = {};
     try {
@@ -313,6 +193,7 @@ exports.croneJob = () => {
 
       // calculate 60% of the total amount and transfer to the bank
       for (let obj in arr) {
+        console.log(obj);
         const event = await eventModel.findByPk(obj, {
           include: [
             {
