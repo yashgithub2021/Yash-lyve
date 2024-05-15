@@ -283,7 +283,7 @@ exports.payCommissions = catchAsyncError(async (req, res, next) => {
 
 // Pay commission 60% of the total amount to the creator
 exports.croneJob = () => {
-  cron.schedule("10 01 * * *", async () => {
+  cron.schedule("20 13 * * *", async () => {
     console.log("runnnnnnnnnnnn");
     const arr = {};
     try {
