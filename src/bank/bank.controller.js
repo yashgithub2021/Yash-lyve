@@ -165,104 +165,104 @@ exports.loginLink = catchAsyncError(async (req, res, next) => {
 
 // Pay commission 60% of the total amount to the creator
 exports.croneJob = () => {
-  cron.schedule("30 16 * * *", async () => {
-    // console.log("runnnnnnnnnnnn");
-    // try {
-    //   const transfer = await stripe.transfers.create({
-    //     amount: 10 * 100,
-    //     currency: "usd",
-    //     destination: "acct_1PGeSDPvw1hT1fMd",
-    //     description: "Transfer to event creator",
-    //     metadata: {
-    //       eventName: "Kuldeep event",
-    //       abc: "abs",
-    //       ads: "ads",
-    //     },
-    //   });
-    //   console.log(transfer);
-    // } catch (e) {
-    //   console.log(e);
-    // }
+  cron.schedule("00 17 * * *", async () => {
     console.log("runnnnnnnnnnnn");
-    const arr = {};
     try {
-      const transactions = await Transaction.findAll({
-        where: { payment_status: "succeeded" },
+      const transfer = await stripe.transfers.create({
+        amount: 10 * 100,
+        currency: "usd",
+        destination: "acct_1PGeSDPvw1hT1fMd",
+        description: "Transfer to event creator",
+        metadata: {
+          eventName: "Kuldeep event",
+          abc: "abs",
+          ads: "ads",
+        },
       });
-      if (!transactions) {
-        return next(
-          new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
-        );
-      }
-      // Create object of event amount and bank_account_id
-      for (let transaction of transactions) {
-        if (!transaction.charge) {
-          if (arr[transaction.eventId]) {
-            arr[transaction.eventId]["amount"] += transaction.payment_amount;
-          } else {
-            arr[transaction.eventId] = {};
-            arr[transaction.eventId]["amount"] = transaction.payment_amount;
-            arr[transaction.eventId]["bank_account_id"] =
-              transaction.bank_account_id;
-          }
-        }
-      }
-      // calculate 60% of the total amount and transfer to the bank
-      for (let obj in arr) {
-        const event = await eventModel.findByPk(obj, {
-          include: [
-            {
-              model: userModel,
-              as: "creator",
-              attributes: [
-                "id",
-                "username",
-                "avatar",
-                "email",
-                "bank_account_id",
-              ],
-            },
-          ],
-        });
-        if (!arr[obj].bank_account_id) {
-          return next(
-            new ErrorHandler("Bank account not found", StatusCodes.NOT_FOUND)
-          );
-        } else if (event.status === "Completed") {
-          console.log(event);
-          const calculatedPercentage = await calculate60Percent(
-            arr[obj].amount
-          );
-          const amount = await payCommission(
-            calculatedPercentage,
-            arr[obj].bank_account_id,
-            event.id,
-            event.title,
-            event.thumbnail,
-            event.event_date,
-            event.event_time,
-            event.status,
-            event.creator.id,
-            event.creator.username,
-            event.creator.avatar
-          );
-
-          console.log(amount);
-          // updating the charge field
-          if (amount.source_transaction === null) {
-            await Transaction.update(
-              {
-                charge: "paid",
-              },
-              { where: { eventId: obj } }
-            );
-          }
-        }
-      }
-    } catch (error) {
-      console.log(error);
-      throw new Error(error.message);
+      console.log(transfer);
+    } catch (e) {
+      console.log(e);
     }
+    // console.log("runnnnnnnnnnnn");
+    // const arr = {};
+    // try {
+    //   const transactions = await Transaction.findAll({
+    //     where: { payment_status: "succeeded" },
+    //   });
+    //   if (!transactions) {
+    //     return next(
+    //       new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
+    //     );
+    //   }
+    //   // Create object of event amount and bank_account_id
+    //   for (let transaction of transactions) {
+    //     if (!transaction.charge) {
+    //       if (arr[transaction.eventId]) {
+    //         arr[transaction.eventId]["amount"] += transaction.payment_amount;
+    //       } else {
+    //         arr[transaction.eventId] = {};
+    //         arr[transaction.eventId]["amount"] = transaction.payment_amount;
+    //         arr[transaction.eventId]["bank_account_id"] =
+    //           transaction.bank_account_id;
+    //       }
+    //     }
+    //   }
+    //   // calculate 60% of the total amount and transfer to the bank
+    //   for (let obj in arr) {
+    //     const event = await eventModel.findByPk(obj, {
+    //       include: [
+    //         {
+    //           model: userModel,
+    //           as: "creator",
+    //           attributes: [
+    //             "id",
+    //             "username",
+    //             "avatar",
+    //             "email",
+    //             "bank_account_id",
+    //           ],
+    //         },
+    //       ],
+    //     });
+    //     if (!arr[obj].bank_account_id) {
+    //       return next(
+    //         new ErrorHandler("Bank account not found", StatusCodes.NOT_FOUND)
+    //       );
+    //     } else if (event.status === "Completed") {
+    //       console.log(event);
+    //       const calculatedPercentage = await calculate60Percent(
+    //         arr[obj].amount
+    //       );
+    //       const amount = await payCommission(
+    //         calculatedPercentage,
+    //         arr[obj].bank_account_id,
+    //         event.id,
+    //         event.title,
+    //         event.thumbnail,
+    //         event.event_date,
+    //         event.event_time,
+    //         event.status,
+    //         event.creator.id,
+    //         event.creator.username,
+    //         event.creator.avatar
+    //       );
+
+    //       console.log(amount);
+    //       // updating the charge field
+    //       if (amount.source_transaction === null) {
+    //         await Transaction.update(
+    //           {
+    //             charge: "paid",
+    //           },
+    //           { where: { eventId: obj } }
+    //         );
+    //       }
+    //     }
+    //   }
+    // } catch (error) {
+    //   console.log(error);
+    //   throw new Error(error.message);
+    // }
   });
 };
 
