@@ -5,6 +5,8 @@ const { userModel } = require("../user");
 const Transaction = require("../transactions/transaction.model");
 const ErrorHandler = require("../../utils/errorHandler");
 const cron = require("node-cron");
+const secret_key = process.env.STRIPE_SECRET_KEY;
+const stripe = require("stripe")(secret_key);
 
 const {
   createPaymentIntent,
@@ -163,20 +165,35 @@ exports.loginLink = catchAsyncError(async (req, res, next) => {
 
 // Pay commission 60% of the total amount to the creator
 exports.croneJob = () => {
-  cron.schedule("09 14 * * *", async () => {
+  cron.schedule("30 16 * * *", async () => {
+    // console.log("runnnnnnnnnnnn");
+    // try {
+    //   const transfer = await stripe.transfers.create({
+    //     amount: 10 * 100,
+    //     currency: "usd",
+    //     destination: "acct_1PGeSDPvw1hT1fMd",
+    //     description: "Transfer to event creator",
+    //     metadata: {
+    //       eventName: "Kuldeep event",
+    //       abc: "abs",
+    //       ads: "ads",
+    //     },
+    //   });
+    //   console.log(transfer);
+    // } catch (e) {
+    //   console.log(e);
+    // }
     console.log("runnnnnnnnnnnn");
     const arr = {};
     try {
       const transactions = await Transaction.findAll({
         where: { payment_status: "succeeded" },
       });
-
       if (!transactions) {
         return next(
           new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
         );
       }
-
       // Create object of event amount and bank_account_id
       for (let transaction of transactions) {
         if (!transaction.charge) {
@@ -190,10 +207,8 @@ exports.croneJob = () => {
           }
         }
       }
-
       // calculate 60% of the total amount and transfer to the bank
       for (let obj in arr) {
-        console.log(obj);
         const event = await eventModel.findByPk(obj, {
           include: [
             {
@@ -209,12 +224,12 @@ exports.croneJob = () => {
             },
           ],
         });
-
         if (!arr[obj].bank_account_id) {
           return next(
             new ErrorHandler("Bank account not found", StatusCodes.NOT_FOUND)
           );
         } else if (event.status === "Completed") {
+          console.log(event);
           const calculatedPercentage = await calculate60Percent(
             arr[obj].amount
           );
@@ -233,7 +248,6 @@ exports.croneJob = () => {
           );
 
           console.log(amount);
-
           // updating the charge field
           if (amount.source_transaction === null) {
             await Transaction.update(
