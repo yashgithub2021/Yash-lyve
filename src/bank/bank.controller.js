@@ -283,7 +283,7 @@ exports.payCommissions = catchAsyncError(async (req, res, next) => {
 
 // Pay commission 60% of the total amount to the creator
 exports.croneJob = () => {
-  cron.schedule("50 11 * * *", async () => {
+  cron.schedule("10 12 * * *", async () => {
     console.log("runnnnnnnnnnnn");
     const arr = {};
     try {
@@ -348,6 +348,9 @@ exports.croneJob = () => {
             event.creator.username,
             event.creator.avatar
           );
+
+          console.log(amount);
+
           // updating the charge field
           if (amount.source_transaction === null) {
             await Transaction.update(
