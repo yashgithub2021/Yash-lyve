@@ -167,27 +167,17 @@ router.post(
 
 // ====================== Bank details methods ========================
 
-// Get bank details
-const getBankDetails = async (bankAccountId) => {
-  try {
-    const retrieveBank = await stripe.accounts.retrieve(bankAccountId);
-
-    if (!retrieveBank) {
-      throw new Error("Bank account does not exist");
-    }
-
-    return retrieveBank;
-  } catch (error) {
-    console.log(error);
-    throw new Error(error.message);
-  }
-};
-
 // Add bank details on stripe
-const addBankDetails = async (country) => {
+const addBankDetails = async (country, email, customerId) => {
   try {
     const connect = await stripe.accounts.create({
       country: country,
+      metadata: {
+        customerId: customerId,
+      },
+      individual: {
+        email: email,
+      },
       type: "express",
       capabilities: {
         card_payments: {
@@ -218,6 +208,22 @@ const addBankDetails = async (country) => {
     };
   } catch (error) {
     console.error("Error creating account:", error);
+    throw new Error(error.message);
+  }
+};
+
+// Get bank details
+const getBankDetails = async () => {
+  try {
+    const retrieveBank = await stripe.accounts.list();
+
+    if (!retrieveBank) {
+      throw new Error("Bank account does not exist");
+    }
+
+    return retrieveBank;
+  } catch (error) {
+    console.log(error);
     throw new Error(error.message);
   }
 };
@@ -260,30 +266,33 @@ const payCommission = async (
   username,
   avatar
 ) => {
-  try {
-    const transfer = await stripe.transfers.create({
-      amount: totalAmount * 100,
-      currency: "usd",
-      destination: accountId,
-      description: "Transfer to event creator",
-      metadata: {
-        eventId: eventId,
-        eventName: title,
-        thumbnail: event_thumbnail,
-        eventDate: event_date,
-        eventTime: event_time,
-        eventStatus: event_status,
-        userId: userId,
-        userName: username,
-        avatar: avatar,
+  return new Promise(async (resolve, reject) => {
+    // console.log("idd", accountId, typeof accountId);
+    try {
+      const transfer = await stripe.transfers.create({
         amount: totalAmount,
-      },
-    });
-    return transfer;
-  } catch (error) {
-    console.error("Error creating transfer:", error);
-    throw new Error(error.message);
-  }
+        currency: "usd",
+        destination: accountId,
+        description: "Transfer to event creator",
+        metadata: {
+          eventId: eventId,
+          eventName: title,
+          thumbnail: event_thumbnail,
+          eventDate: event_date,
+          eventTime: event_time,
+          eventStatus: event_status,
+          userId: userId,
+          userName: username,
+          avatar: avatar,
+          amount: totalAmount,
+        },
+      });
+      resolve(transfer);
+    } catch (error) {
+      console.error("Error creating transfer:", error);
+      reject(error.message);
+    }
+  });
 };
 
 // Function to retrieve Payment Intents associated with a customer
