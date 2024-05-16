@@ -5,8 +5,6 @@ const { userModel } = require("../user");
 const Transaction = require("../transactions/transaction.model");
 const ErrorHandler = require("../../utils/errorHandler");
 const cron = require("node-cron");
-const secret_key = process.env.STRIPE_SECRET_KEY;
-const stripe = require("stripe")(secret_key);
 
 const {
   createPaymentIntent,
@@ -60,40 +58,24 @@ exports.addBankAccountDetails = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
   }
 
-  const { email, username, dob, customerId, bank_account_id } = user;
+  const { email, customerId, bank_account_id } = user;
 
-  const {
-    country,
-    currency,
-    account_holder_name,
-    account_holder_type,
-    routing_number,
-    account_number,
-  } = req.body;
+  const { country } = req.body;
 
-  const account = await addBankDetails(
-    country,
-    currency,
-    account_holder_name,
-    account_holder_type,
-    routing_number,
-    account_number,
-    email,
-    customerId,
-    username,
-    dob
-  );
+  const account = await addBankDetails(country, email, customerId);
 
-  let updateData = {};
+  if (!bank_account_id) {
+    let updateData = {};
 
-  if (account) updateData.bank_account_id = account.accountId;
+    if (account) updateData.bank_account_id = account.accountId;
 
-  await user.update(updateData);
+    await user.update(updateData);
+  }
 
   res.status(200).json({ success: true, account });
 });
 
-// Add bank details
+// Get bank details
 exports.getBankAccountDetails = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
 
@@ -103,23 +85,56 @@ exports.getBankAccountDetails = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
   }
 
-  const { bank_account_id } = user;
+  const { customerId, bank_account_id } = user;
 
-  if (!bank_account_id) {
-    return next(
-      new ErrorHandler("No bank account found", StatusCodes.NOT_FOUND)
-    );
+  if (bank_account_id) {
+    const bankDetails = await getBankDetails();
+
+    let account = [];
+
+    const details = bankDetails.data.filter((data) => {
+      return data.metadata.customerId === customerId;
+    });
+
+    details.map((detail) => {
+      return detail.external_accounts.data.map((acct) => {
+        return account.push({
+          country: acct.country,
+          currency: acct.currency,
+          bankName: acct.bank_name,
+          accountId: acct.account,
+          isPrimary: acct.account === bank_account_id ? true : false,
+        });
+      });
+    });
   }
 
-  const bankDetails = await getBankDetails(bank_account_id);
+  res.status(200).json({ success: true, bankDetails: account });
+});
 
-  const accountDetails = {
-    bankName: bankDetails.external_accounts.data[0].bank_name,
-    country: bankDetails.external_accounts.data[0].country,
-    currency: bankDetails.external_accounts.data[0].currency,
-  };
+// Add primary bank account
+exports.addPrimaryBank = catchAsyncError(async (req, res, next) => {
+  const { userId } = req;
 
-  res.status(200).json({ success: true, bankDetails: accountDetails });
+  const user = await userModel.findByPk(userId);
+
+  if (!user) {
+    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
+  }
+
+  const { accountId } = req.body;
+
+  let updateData = {};
+
+  if (accountId) updateData.bank_account_id = accountId;
+
+  await user.update(updateData);
+
+  res.status(200).json({
+    success: true,
+    accountId: accountId,
+    message: "Primary account is added successfully",
+  });
 });
 
 // delete bank details
@@ -165,104 +180,88 @@ exports.loginLink = catchAsyncError(async (req, res, next) => {
 
 // Pay commission 60% of the total amount to the creator
 exports.croneJob = () => {
-  cron.schedule("00 17 * * *", async () => {
+  cron.schedule("39 17 * * *", async () => {
     console.log("runnnnnnnnnnnn");
+    const arr = {};
     try {
-      const transfer = await stripe.transfers.create({
-        amount: 10 * 100,
-        currency: "usd",
-        destination: "acct_1PGeSDPvw1hT1fMd",
-        description: "Transfer to event creator",
-        metadata: {
-          eventName: "Kuldeep event",
-          abc: "abs",
-          ads: "ads",
-        },
+      const transactions = await Transaction.findAll({
+        where: { payment_status: "succeeded" },
       });
-      console.log(transfer);
-    } catch (e) {
-      console.log(e);
-    }
-    // console.log("runnnnnnnnnnnn");
-    // const arr = {};
-    // try {
-    //   const transactions = await Transaction.findAll({
-    //     where: { payment_status: "succeeded" },
-    //   });
-    //   if (!transactions) {
-    //     return next(
-    //       new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
-    //     );
-    //   }
-    //   // Create object of event amount and bank_account_id
-    //   for (let transaction of transactions) {
-    //     if (!transaction.charge) {
-    //       if (arr[transaction.eventId]) {
-    //         arr[transaction.eventId]["amount"] += transaction.payment_amount;
-    //       } else {
-    //         arr[transaction.eventId] = {};
-    //         arr[transaction.eventId]["amount"] = transaction.payment_amount;
-    //         arr[transaction.eventId]["bank_account_id"] =
-    //           transaction.bank_account_id;
-    //       }
-    //     }
-    //   }
-    //   // calculate 60% of the total amount and transfer to the bank
-    //   for (let obj in arr) {
-    //     const event = await eventModel.findByPk(obj, {
-    //       include: [
-    //         {
-    //           model: userModel,
-    //           as: "creator",
-    //           attributes: [
-    //             "id",
-    //             "username",
-    //             "avatar",
-    //             "email",
-    //             "bank_account_id",
-    //           ],
-    //         },
-    //       ],
-    //     });
-    //     if (!arr[obj].bank_account_id) {
-    //       return next(
-    //         new ErrorHandler("Bank account not found", StatusCodes.NOT_FOUND)
-    //       );
-    //     } else if (event.status === "Completed") {
-    //       console.log(event);
-    //       const calculatedPercentage = await calculate60Percent(
-    //         arr[obj].amount
-    //       );
-    //       const amount = await payCommission(
-    //         calculatedPercentage,
-    //         arr[obj].bank_account_id,
-    //         event.id,
-    //         event.title,
-    //         event.thumbnail,
-    //         event.event_date,
-    //         event.event_time,
-    //         event.status,
-    //         event.creator.id,
-    //         event.creator.username,
-    //         event.creator.avatar
-    //       );
+      if (!transactions) {
+        return next(
+          new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
+        );
+      }
+      // Create object of event amount and bank_account_id
+      for (let transaction of transactions) {
+        if (!transaction.charge) {
+          if (arr[transaction.eventId]) {
+            arr[transaction.eventId]["amount"] += transaction.payment_amount;
+          } else {
+            arr[transaction.eventId] = {};
+            arr[transaction.eventId]["amount"] = transaction.payment_amount;
+            arr[transaction.eventId]["bank_account_id"] =
+              transaction.bank_account_id;
+          }
+        }
+      }
+      // calculate 60% of the total amount and transfer to the bank
+      for (let obj in arr) {
+        const event = await eventModel.findByPk(obj, {
+          include: [
+            {
+              model: userModel,
+              as: "creator",
+              attributes: [
+                "id",
+                "username",
+                "avatar",
+                "email",
+                "bank_account_id",
+              ],
+            },
+          ],
+        });
+        if (!arr[obj].bank_account_id) {
+          return next(
+            new ErrorHandler("Bank account not found", StatusCodes.NOT_FOUND)
+          );
+        } else if (event.status === "Completed") {
+          console.log(event);
+          const calculatedPercentage = await calculate60Percent(
+            arr[obj].amount
+          );
 
-    //       console.log(amount);
-    //       // updating the charge field
-    //       if (amount.source_transaction === null) {
-    //         await Transaction.update(
-    //           {
-    //             charge: "paid",
-    //           },
-    //           { where: { eventId: obj } }
-    //         );
-    //       }
-    //     }
-    //   }
-    // } catch (error) {
-    //   console.log(error);
-    //   throw new Error(error.message);
-    // }
+          const amount = await payCommission(
+            calculatedPercentage,
+            arr[obj].bank_account_id.replaceAll("'", ""),
+            event.id,
+            event.title,
+            event.thumbnail,
+            event.event_date,
+            event.event_time,
+            event.status,
+            event.creator.id,
+            event.creator.username,
+            event.creator.avatar
+          );
+
+          console.log(amount);
+          // updating the charge field
+          if (amount.source_transaction === null) {
+            await Transaction.update(
+              {
+                charge: "paid",
+              },
+              { where: { eventId: obj } }
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.log(error);
+      throw new Error(error.message);
+    }
   });
 };
 
