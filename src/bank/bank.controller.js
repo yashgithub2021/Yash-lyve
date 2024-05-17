@@ -87,27 +87,31 @@ exports.getBankAccountDetails = catchAsyncError(async (req, res, next) => {
 
   const { customerId, bank_account_id } = user;
 
-  if (bank_account_id) {
-    const bankDetails = await getBankDetails();
+  if (!bank_account_id) {
+    return next(
+      new ErrorHandler("No bank account added yet", StatusCodes.NOT_FOUND)
+    );
+  }
 
-    let account = [];
+  const bankDetails = await getBankDetails();
 
-    const details = bankDetails.data.filter((data) => {
-      return data.metadata.customerId === customerId;
-    });
+  let account = [];
 
-    details.map((detail) => {
-      return detail.external_accounts.data.map((acct) => {
-        return account.push({
-          country: acct.country,
-          currency: acct.currency,
-          bankName: acct.bank_name,
-          accountId: acct.account,
-          isPrimary: acct.account === bank_account_id ? true : false,
-        });
+  const details = bankDetails.data.filter((data) => {
+    return data.metadata.customerId === customerId;
+  });
+
+  details.map((detail) => {
+    return detail.external_accounts.data.map((acct) => {
+      return account.push({
+        country: acct.country,
+        currency: acct.currency,
+        bankName: acct.bank_name,
+        accountId: acct.account,
+        isPrimary: acct.account === bank_account_id ? true : false,
       });
     });
-  }
+  });
 
   res.status(200).json({ success: true, bankDetails: account });
 });
