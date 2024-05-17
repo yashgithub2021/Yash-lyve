@@ -213,9 +213,22 @@ const addBankDetails = async (country, email, customerId) => {
 };
 
 // Get bank details
-const getBankDetails = async () => {
+const getBankDetails = async (bankAccountId) => {
+  // try {
+  //   const retrieveBank = await stripe.accounts.list();
+  //   console.log("dnjkdnnd", retrieveBank);
+
+  //   if (!retrieveBank) {
+  //     throw new Error("Bank account does not exist");
+  //   }
+
+  //   return retrieveBank;
+  // } catch (error) {
+  //   console.log(error);
+  //   throw new Error(error.message);
+  // }
   try {
-    const retrieveBank = await stripe.accounts.list();
+    const retrieveBank = await stripe.accounts.retrieve(bankAccountId);
 
     if (!retrieveBank) {
       throw new Error("Bank account does not exist");
