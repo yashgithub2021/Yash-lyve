@@ -86,40 +86,30 @@ exports.getBankAccountDetails = catchAsyncError(async (req, res, next) => {
   }
 
   const { customerId, bank_account_id } = user;
-  const bankDetails = await getBankDetails(bank_account_id);
-  const accountDetails = {
-    bankName: bankDetails.external_accounts.data[0].bank_name,
-    country: bankDetails.external_accounts.data[0].country,
-    currency: bankDetails.external_accounts.data[0].currency,
-  };
-  res.status(200).json({ success: true, bankDetails: accountDetails });
 
-  // console.log("idddd", bank_account_id);
+  if (bank_account_id) {
+    const bankDetails = await getBankDetails();
 
-  // console.log("runnnnnn");
+    let account = [];
 
-  // console.log("runnnnnn");
-  // const bankDetails = await getBankDetails();
+    const details = bankDetails.data.filter((data) => {
+      return data.metadata.customerId === customerId;
+    });
 
-  // let account = [];
+    details.map((detail) => {
+      return detail.external_accounts.data.map((acct) => {
+        return account.push({
+          country: acct.country,
+          currency: acct.currency,
+          bankName: acct.bank_name,
+          accountId: acct.account,
+          isPrimary: acct.account === bank_account_id ? true : false,
+        });
+      });
+    });
+  }
 
-  // const details = bankDetails.data.filter((data) => {
-  //   return data.metadata.customerId === customerId;
-  // });
-
-  // details.map((detail) => {
-  //   return detail.external_accounts.data.map((acct) => {
-  //     return account.push({
-  //       country: acct.country,
-  //       currency: acct.currency,
-  //       bankName: acct.bank_name,
-  //       accountId: acct.account,
-  //       isPrimary: acct.account === bank_account_id ? true : false,
-  //     });
-  //   });
-  // });
-
-  // res.status(200).json({ success: true, bankDetails: account });
+  res.status(200).json({ success: true, bankDetails: account });
 });
 
 // Add primary bank account
