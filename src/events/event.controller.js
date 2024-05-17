@@ -35,7 +35,7 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
   if (confirmAccount.capabilities.transfers !== "active") {
     return next(
       new ErrorHandler(
-        "Account verification is pending",
+        "Stripe account verification is pending",
         StatusCodes.BAD_REQUEST
       )
     );
