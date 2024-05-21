@@ -124,6 +124,7 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
       eventTime: event.event_time,
       eventDate: event.event_date,
       eventStatus: event.status,
+      eventDuration: event.event_duration,
       userName: event.creator.username,
       avatar: event.creator.avatar,
       entryFees: event.entry_fee,
@@ -150,6 +151,7 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     userId: transaction.userId,
     title: transaction.event.title,
     eventTime: transaction.event.event_time,
+    eventDuration: transaction.event.event_duration,
     eventDate: transaction.event.event_date,
     eventStatus: transaction.event.status,
     hasPaid:
