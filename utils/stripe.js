@@ -1,8 +1,12 @@
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
 const { eventModel } = require("../src/events/event.model");
+const { userModel } = require("../src/user/index");
 const Transaction = require("../src/transactions/transaction.model");
 const express = require("express");
+const { firebase } = require("./firebase");
+const messaging = firebase.messaging();
+
 const router = express.Router();
 
 // create customer on stripe
@@ -124,6 +128,30 @@ router.post(
             // CREATE ORDER
             createTransaction(customer, data, "");
             console.log("da", data);
+            console.log("userrrrrrridddd", data.metadata.userId)
+            userId = data.metadata.userId
+            user = await userModel.findByPk(userId);
+            let token = user.fcm_token;
+            const fcmMessage = {
+              notification: {
+                title: "Payment Confirmation",
+                body: `Your payment for the live event has been successfully processed. Enjoy the stream!`,
+              },
+              token,
+              data: {
+                type: "Payment Confirmation",
+              },
+            };
+
+            try {
+              await messaging.send(fcmMessage);
+              console.log("Push notification sent successfully.");
+            } catch (error) {
+              // Handle error if FCM token is expired or invalid
+              console.error("Error sending push notification:", error);
+              // Log the error and proceed with the follow operation
+            }
+
           } catch (err) {
             console.log(err);
           }
