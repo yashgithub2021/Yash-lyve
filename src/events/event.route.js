@@ -1,11 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const { auth, authRole } = require("../../middlewares/auth");
+const { auth } = require("../../middlewares/auth");
 const { upload } = require("../../utils/s3");
 const {
   createEvent,
   deleteEvent,
-  createGenre,
   getUpcomingEvents,
   getRecommendedEvents,
   getEvents,
