@@ -6,7 +6,6 @@ const { eventModel } = require("../events/event.model");
 const { userModel } = require("../user/user.model");
 const { Op } = require("sequelize");
 const { Wishlist } = require("../wishlist");
-// const { db } = require("../../config/database");
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
 

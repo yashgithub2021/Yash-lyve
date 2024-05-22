@@ -9,7 +9,7 @@ const path = "./config/config.env";
 dotenv.config({ path });
 
 const { router } = require("./utils/stripe");
-// app.use(appHook);
+
 app.use(router);
 app.use(express.json());
 app.use(
