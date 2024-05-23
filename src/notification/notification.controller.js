@@ -88,3 +88,18 @@ exports.deleteNotification = catchAsyncError(async (req, res, next) => {
     .status(200)
     .json({ message: "Notification Deleted Successfully.", isDeleted });
 });
+
+exports.deleteAllNotifications = catchAsyncError(async (req, res, next) => {
+  const { userId } = req;
+
+  // Delete all notifications for the given userId
+  const isDeleted = await notificationModel.destroy({ where: { userId } });
+
+  if (isDeleted === 0)
+    return next(new ErrorHandler("No notifications found for this user.", 404));
+
+  res
+    .status(200)
+    .json({ message: "All notifications deleted successfully.", isDeleted });
+});
+

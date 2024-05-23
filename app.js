@@ -35,6 +35,7 @@ const {
   bankRoute,
 } = require("./src");
 const { croneJob } = require("./src/bank/bank.controller");
+const { cronJobs } = require("./utils/cronjobs");
 
 app.use("/api/users", userRoute);
 app.use("/api/events", eventRouter);
@@ -55,6 +56,7 @@ app.all("*", async (req, res) => {
 });
 
 croneJob();
+cronJobs()
 
 app.use(errorMiddleware);
 
