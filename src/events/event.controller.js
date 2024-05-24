@@ -1079,7 +1079,7 @@ exports.cancelEvent = catchAsyncError(async (req, res, next) => {
     });
   }
 
-  const user = await userModel.findByPk(userId);
+  const user = await userModel.findOne({ userId: userId });
 
   if (!user) {
     return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
