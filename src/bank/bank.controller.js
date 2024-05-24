@@ -375,7 +375,7 @@ exports.refundAmountOnCancelEvent = async (customerId, eventId) => {
 
       resolve(refund);
     } catch (error) {
-      reject(error);
+      reject(error.message);
     }
   });
 };
