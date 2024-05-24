@@ -56,7 +56,7 @@ app.all("*", async (req, res) => {
 });
 
 croneJob();
-cronJobs()
+cronJobs();
 
 app.use(errorMiddleware);
 
