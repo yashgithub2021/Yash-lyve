@@ -153,10 +153,12 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
     eventDuration: transaction.event.event_duration,
     eventDate: transaction.event.event_date,
     eventStatus: transaction.event.status,
+    // refund: transaction.charge === "refunded" ? false : true,
     hasPaid:
-      transaction.payment_status === "succeeded"
+      transaction.payment_status === "succeeded" &&
+      transaction.charge !== "refunded"
         ? true
-        : transaction.payment_status === false,
+        : false,
     amount: transaction.amount,
     userName: event.creator.username,
     avatar: event.creator.avatar,
