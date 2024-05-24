@@ -325,45 +325,46 @@ const payCommission = async (
 
 // Function to retrieve Payment Intents associated with a customer
 const getPaymentIntentsByCustomer = async (customerId, eventId) => {
-  try {
-    const paymentIntents = await stripe.paymentIntents.list({
-      customer: customerId,
-    });
+  return new Promise(async (resolve, reject) => {
+    try {
+      const paymentIntents = await stripe.paymentIntents.list({
+        customer: customerId,
+      });
 
-    let amount;
-    let paymentIntentId;
+      let amount;
+      let paymentIntentId;
 
-    paymentIntents.data.forEach((paymentIntent) => {
-      if (paymentIntent && paymentIntent.metadata.eventId === eventId) {
-        paymentIntentId = paymentIntent.id;
-        amount = paymentIntent.amount;
-      }
-    });
+      paymentIntents.data.forEach((paymentIntent) => {
+        if (paymentIntent && paymentIntent.metadata.eventId === eventId) {
+          paymentIntentId = paymentIntent.id;
+          amount = paymentIntent.amount;
+        }
+      });
 
-    return {
-      amount,
-      paymentIntentId,
-    };
-  } catch (error) {
-    // Handle errors
-    console.error("Error retrieving Payment Intents:", error);
-    throw error;
-  }
+      resolve({
+        amount,
+        paymentIntentId,
+      });
+    } catch (error) {
+      reject(error.message);
+    }
+  });
 };
 
 // pay refund to the users
 const payRefund = async (refundAmount, paymentIntentId) => {
   // console.log(refundAmount, paymentIntentId);
-  try {
-    const refund = await stripe.refunds.create({
-      payment_intent: paymentIntentId,
-      amount: refundAmount, // The amount to refund in cents (or smallest currency unit)
-    });
-    return refund;
-  } catch (error) {
-    console.error("Error creating refund:", error);
-    throw new Error(error.message);
-  }
+  return new Promise(async (resolve, reject) => {
+    try {
+      const refund = await stripe.refunds.create({
+        payment_intent: paymentIntentId,
+        amount: refundAmount, // The amount to refund in cents (or smallest currency unit)
+      });
+      resolve(refund);
+    } catch (error) {
+      reject(error.message);
+    }
+  });
 };
 
 // Create transaction model

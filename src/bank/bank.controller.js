@@ -269,49 +269,94 @@ exports.croneJob = () => {
   });
 };
 
-// When event canceled this function will run for refunds
-exports.refundAmount = async (eventId, next) => {
-  const transactions = await Transaction.findAll({
-    where: { eventId: eventId },
+// When event deleted this function will run for refunds
+exports.refundAmountOnDeleteEvent = async (transactions) => {
+  console.log("id", transactions);
+  return new Promise(async (resolve, reject) => {
+    try {
+      const arr = {};
+
+      for (let transaction of transactions) {
+        if (transaction.payment_status === "succeeded") {
+          arr[transaction.eventId] = {};
+          arr[transaction.eventId]["customers"] = transactions.customerId;
+          arr[transaction.eventId]["payment_status"] =
+            transactions.payment_status;
+        }
+      }
+
+      for (let obj in arr) {
+        const paymentIntents = await getPaymentIntentsByCustomer(
+          arr[obj].customers,
+          obj
+        );
+
+        if (arr[obj].payment_status === "succeeded") {
+          const refund = payRefund(
+            paymentIntents.amount,
+            paymentIntents.paymentIntentId
+          );
+
+          // updating charge field to refunded
+          if (refund.status === "succeeded") {
+            const updatedTransaction = await Transaction.update(
+              {
+                charge: "refunded",
+              },
+              { where: { eventId: obj } }
+            );
+            resolve(updatedTransaction);
+          }
+        }
+      }
+    } catch (error) {
+      reject(error);
+    }
   });
 
-  if (!transactions) {
-    return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
-  }
+  // const transactions = await Transaction.findAll({
+  //   where: { eventId: eventId },
+  // });
 
-  const arr = {};
+  // if (!transactions) {
+  //   return next(
+  //     new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
+  //   );
+  // }
 
-  for (let transaction of transactions) {
-    if (transaction.payment_status === "succeeded") {
-      arr[transaction.eventId] = {};
-      arr[transaction.eventId]["customers"] = transactions.customerId;
-      arr[transaction.eventId]["payment_status"] = transactions.payment_status;
-    }
-  }
+  // const arr = {};
 
-  for (let obj in arr) {
-    const paymentIntents = await getPaymentIntentsByCustomer(
-      arr[obj].customers,
-      obj
-    );
+  // for (let transaction of transactions) {
+  //   if (transaction.payment_status === "succeeded") {
+  //     arr[transaction.eventId] = {};
+  //     arr[transaction.eventId]["customers"] = transactions.customerId;
+  //     arr[transaction.eventId]["payment_status"] = transactions.payment_status;
+  //   }
+  // }
 
-    if (arr[obj].payment_status === "succeeded") {
-      const refund = payRefund(
-        paymentIntents.amount,
-        paymentIntents.paymentIntentId
-      );
+  // for (let obj in arr) {
+  //   const paymentIntents = await getPaymentIntentsByCustomer(
+  //     arr[obj].customers,
+  //     obj
+  //   );
 
-      // updating charge field to refunded
-      if (refund.status === "succeeded") {
-        await Transaction.update(
-          {
-            charge: "refunded",
-          },
-          { where: { eventId: obj } }
-        );
-      }
-    }
-  }
+  //   if (arr[obj].payment_status === "succeeded") {
+  //     const refund = payRefund(
+  //       paymentIntents.amount,
+  //       paymentIntents.paymentIntentId
+  //     );
+
+  //     // updating charge field to refunded
+  //     if (refund.status === "succeeded") {
+  //       await Transaction.update(
+  //         {
+  //           charge: "refunded",
+  //         },
+  //         { where: { eventId: obj } }
+  //       );
+  //     }
+  //   }
+  // }
 };
 
 // Function for calculating 60% of the total amount

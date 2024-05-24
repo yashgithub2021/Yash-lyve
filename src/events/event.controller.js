@@ -11,7 +11,8 @@ const { db } = require("../../config/database");
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
 const { firebase } = require("../../utils/firebase");
-const { refundAmount } = require("../bank/bank.controller");
+const { refundAmountOnDeleteEvent } = require("../bank/bank.controller");
+const Transaction = require("../transactions/transaction.model");
 const messaging = firebase.messaging();
 
 exports.createEvent = catchAsyncError(async (req, res, next) => {
@@ -26,7 +27,7 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
 
   if (!user.bank_account_id) {
     return next(
-      new ErrorHandler("No bank account found", StatusCodes.NOT_FOUND)
+      new ErrorHandler("Please add bank first", StatusCodes.NOT_FOUND)
     );
   }
 
@@ -150,12 +151,36 @@ exports.deleteEvent = catchAsyncError(async (req, res, next) => {
       .json({ success: false, message: "Unauthorized" });
   }
 
+  // Check if the event start time is more than 24 hours in the future
+  const eventStartTime = new Date(event.event_date).getTime();
+  const currentTime = new Date().getTime();
+  const twentyFourHoursInMilliseconds = 24 * 60 * 60 * 1000;
+
+  if (eventStartTime - currentTime <= twentyFourHoursInMilliseconds) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      message: "Event cannot be deleted within 24 hours of start time",
+    });
+  }
+
+  const transactions = await Transaction.findAll({
+    where: { eventId: eventId },
+  });
+
+  let refund;
+
+  if (transactions.length > 0) {
+    refund = await refundAmountOnDeleteEvent(transactions);
+    console.log(refund);
+  } else {
+    refund = "No transactions found on this event";
+  }
+
   // Delete the event
   await event.destroy();
 
   res
     .status(StatusCodes.OK)
-    .json({ success: true, message: "Event deleted Successfully" });
+    .json({ success: true, message: "Event deleted Successfully", refund });
 });
 
 exports.updateEvent = catchAsyncError(async (req, res, next) => {
