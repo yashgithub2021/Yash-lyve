@@ -359,6 +359,27 @@ exports.refundAmountOnDeleteEvent = async (transactions) => {
   // }
 };
 
+// When event deleted this function will run for refunds
+exports.refundAmountOnCancelEvent = async (customerId, eventId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const paymentIntents = await getPaymentIntentsByCustomer(
+        customerId,
+        eventId
+      );
+
+      const refund = await payRefund(
+        paymentIntents.amount,
+        paymentIntents.paymentIntentId
+      );
+
+      resolve(refund);
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+
 // Function for calculating 60% of the total amount
 async function calculate60Percent(totalAmount) {
   if (typeof totalAmount !== "number" || isNaN(totalAmount)) {

@@ -11,7 +11,10 @@ const { db } = require("../../config/database");
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
 const { firebase } = require("../../utils/firebase");
-const { refundAmountOnDeleteEvent } = require("../bank/bank.controller");
+const {
+  refundAmountOnDeleteEvent,
+  refundAmountOnCancelEvent,
+} = require("../bank/bank.controller");
 const Transaction = require("../transactions/transaction.model");
 const messaging = firebase.messaging();
 
@@ -1065,13 +1068,6 @@ exports.cancelEvent = catchAsyncError(async (req, res, next) => {
       .json({ message: "Event not found" });
   }
 
-  // Check if the current user is the creator of the event
-  if (event.userId !== userId) {
-    return res
-      .status(StatusCodes.FORBIDDEN)
-      .json({ message: "You are not authorized to cancel this event" });
-  }
-
   // Check if the event start time is more than 24 hours in the future
   const eventStartTime = new Date(event.event_date).getTime();
   const currentTime = new Date().getTime();
@@ -1083,22 +1079,36 @@ exports.cancelEvent = catchAsyncError(async (req, res, next) => {
     });
   }
 
-  // Update event fields
-  let updateData = {};
+  const user = await userModel.findByPk(userId);
 
-  // Example: Update other fields
-  const { status } = req.body;
+  if (!user) {
+    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
+  }
 
-  if (status) updateData.status = status;
+  const transaction = await Transaction.findOne({
+    where: { eventId: eventId, userId: userId },
+  });
 
-  // Update the event
-  await event.update(updateData);
+  if (!transaction) {
+    return next(
+      new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
+    );
+  }
+
+  const refund = await refundAmountOnCancelEvent(user.customerId, eventId);
+
+  if (refund.status === "succeeded") {
+    await Transaction.update(
+      {
+        charge: "refunded",
+      },
+      { where: { id: transaction.id } }
+    );
+  }
 
   res
     .status(StatusCodes.OK)
-    .json({ success: true, message: "Event cancelled successfully", event });
-
-  refundAmount(event.id, next);
+    .json({ success: true, message: "Event cancelled successfully" });
 });
 
 // create admin event update route
