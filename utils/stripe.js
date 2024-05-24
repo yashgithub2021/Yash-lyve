@@ -10,7 +10,7 @@ const messaging = firebase.messaging();
 const router = express.Router();
 
 // create customer on stripe
-const createStripeCustomer = async (email, username) => {
+const createStripeCustomers = async (email, username) => {
   const stripeAddress = {
     line1: "asdsadsad",
     line2: "dasadsads",
@@ -20,19 +20,20 @@ const createStripeCustomer = async (email, username) => {
     state: "userAddress.state",
   };
 
-  try {
-    const stripeCustomer = await stripe.customers.create({
-      email: email,
-      name: username,
-      description: "userData.description",
-      phone: "1234567890",
-      address: stripeAddress,
-    });
-    return stripeCustomer.id;
-  } catch (error) {
-    console.error("Error creating Stripe customer:", error);
-    throw new Error(error.message);
-  }
+  return new Promise(async (resolve, reject) => {
+    try {
+      const stripeCustomer = await stripe.customers.create({
+        email: email,
+        name: username,
+        description: "userData.description",
+        phone: "1234567890",
+        address: stripeAddress,
+      });
+      resolve(stripeCustomer.id);
+    } catch (error) {
+      reject(error.message);
+    }
+  });
 };
 
 // Add payment Intent
@@ -128,8 +129,8 @@ router.post(
             // CREATE ORDER
             createTransaction(customer, data, "");
             console.log("da", data);
-            console.log("userrrrrrridddd", data.metadata.userId)
-            userId = data.metadata.userId
+            console.log("userrrrrrridddd", data.metadata.userId);
+            userId = data.metadata.userId;
             user = await userModel.findByPk(userId);
             let token = user.fcm_token;
             const fcmMessage = {
@@ -151,7 +152,6 @@ router.post(
               console.error("Error sending push notification:", error);
               // Log the error and proceed with the follow operation
             }
-
           } catch (err) {
             console.log(err);
           }
@@ -407,7 +407,7 @@ const updateEventSpots = async (eventId) => {
 };
 
 module.exports = {
-  createStripeCustomer,
+  createStripeCustomers,
   addBankDetails,
   getBankDetails,
   deleteBankDetails,
