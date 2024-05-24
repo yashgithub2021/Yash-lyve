@@ -516,10 +516,22 @@ exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
     order: [["createdAt", "DESC"]], // Order events by creation date in descending order
   };
 
+  // if (status) {
+  //   query.where = {
+  //     status,
+  //   };
+  // }
+
   if (status) {
-    query.where = {
-      status,
-    };
+    if (status === "Live" || status === "Upcoming") {
+      query.where = {
+        status: status,
+      };
+    } else {
+      query.where = {
+        status: ["Upcoming", "Live"],
+      };
+    }
   }
 
   if (search_query) {
