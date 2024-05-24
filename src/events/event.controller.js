@@ -1079,7 +1079,7 @@ exports.cancelEvent = catchAsyncError(async (req, res, next) => {
     });
   }
 
-  const user = await userModel.findOne({ userId: userId });
+  const user = await userModel.findByPk(userId);
 
   if (!user) {
     return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
@@ -1090,9 +1090,9 @@ exports.cancelEvent = catchAsyncError(async (req, res, next) => {
   });
 
   if (!transaction) {
-    return next(
-      new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
-    );
+    res
+      .status(StatusCodes.OK)
+      .json({ success: true, message: "You have not pay for this event" });
   }
 
   const refund = await refundAmountOnCancelEvent(user.customerId, eventId);
