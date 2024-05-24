@@ -160,9 +160,12 @@ exports.deleteEvent = catchAsyncError(async (req, res, next) => {
   const twentyFourHoursInMilliseconds = 24 * 60 * 60 * 1000;
 
   if (eventStartTime - currentTime <= twentyFourHoursInMilliseconds) {
-    return res.status(StatusCodes.BAD_REQUEST).json({
-      message: "Event cannot be deleted within 24 hours of start time",
-    });
+    return next(
+      new ErrorHandler(
+        "Event cannot be canceled within 24 hours of start time",
+        StatusCodes.BAD_GATEWAY
+      )
+    );
   }
 
   const transactions = await Transaction.findAll({
@@ -1086,9 +1089,12 @@ exports.cancelEvent = catchAsyncError(async (req, res, next) => {
   const twentyFourHoursInMilliseconds = 24 * 60 * 60 * 1000;
 
   if (eventStartTime - currentTime <= twentyFourHoursInMilliseconds) {
-    return res.status(StatusCodes.BAD_REQUEST).json({
-      message: "Event cannot be canceled within 24 hours of start time",
-    });
+    return next(
+      new ErrorHandler(
+        "Event cannot be canceled within 24 hours of start time",
+        StatusCodes.BAD_GATEWAY
+      )
+    );
   }
 
   const user = await userModel.findByPk(userId);
