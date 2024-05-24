@@ -9,7 +9,9 @@ const { Op } = require("sequelize");
 const { db } = require("../../config/database");
 const { eventModel } = require("../events/event.model");
 const { notificationModel } = require("../notification");
-const { createStripeCustomer } = require("../../utils/stripe");
+// const { createStripeCustomers } = require("../../utils/stripe");
+const secret_key = process.env.STRIPE_SECRET_KEY;
+const stripe = require("stripe")(secret_key);
 const { firebase } = require("../../utils/firebase");
 const bcrypt = require("bcryptjs");
 
@@ -188,7 +190,7 @@ exports.sendDummyToken = catchAsyncError(async (req, res, next) => {
 
 exports.register = catchAsyncError(async (req, res, next) => {
   console.log("register", req.body);
-  const { email, username, dob, fireBaseToken, mobile_no } = req.body;
+  const { email, dob, fireBaseToken } = req.body;
   const imageFile = req.file;
   const imageUrl = imageFile && (await s3Uploadv2(imageFile));
   let user;
@@ -199,8 +201,6 @@ exports.register = catchAsyncError(async (req, res, next) => {
       new ErrorHandler("Fire base token is required", StatusCodes.NOT_FOUND)
     );
   }
-
-  const stripeCustomerId = await createStripeCustomer(email, username);
 
   if (prevUser && !prevUser.isVerified) {
     await prevUser.update({ ...req.body });
@@ -219,7 +219,6 @@ exports.register = catchAsyncError(async (req, res, next) => {
           ...req.body,
           role: "User",
           fcm_token: fireBaseToken,
-          customerId: stripeCustomerId,
           dob: new Date(dob),
         });
   }
@@ -271,6 +270,7 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
       "updatedAt",
     ],
   });
+
   if (!userVerified) {
     return next(
       new ErrorHandler(
@@ -281,7 +281,6 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
   }
 
   const otpInstance = await otpModel.findOne({ where: { otp } });
-  console.log("otpInstance", otpInstance);
 
   if (!otpInstance) {
     return next(
@@ -321,12 +320,25 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
     gender: userVerified.gender,
     avatar: userVerified.avatar,
     fcm_token: userVerified.fcm_token,
-    customerId: userVerified.customerId,
-    payment_methodId: null,
     createdAt: userVerified.createdAt,
     updatedAt: userVerified.updatedAt,
     deletedAt: null,
   });
+
+  const stripeCustomer = await stripe.customers.create({
+    email: user.email,
+    name: user.username,
+  });
+
+  if (!stripeCustomer) {
+    return next(new ErrorHandler("Stripe error", StatusCodes.BAD_REQUEST));
+  }
+
+  let customer = {};
+
+  if (stripeCustomer) customer.customerId = stripeCustomer.id;
+
+  await user.update(customer);
 
   // Destroy the OTP instance after successful verification
   await otpModel.destroy({ where: { id: otpInstance.id } });
@@ -335,7 +347,6 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
   // Generate JWT token for the user
   const token = user.getJWTToken();
 
-  // Respond with success and user details along with token
   res.status(StatusCodes.CREATED).json({ success: true, user, token });
 });
 
