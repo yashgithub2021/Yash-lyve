@@ -19,6 +19,6 @@ router.put("/add-bank-details", auth, addBankAccountDetails);
 router.put("/add-primary-bank", auth, addPrimaryBank);
 router.put("/delete-bank-details", auth, deleteBankAccountDetails);
 router.post("/login-link", auth, loginLink);
-router.put("/cancel-event/:eventId", cancelEvent);
+router.put("/cancel-event/:eventId", auth, cancelEvent);
 
 module.exports = router;
