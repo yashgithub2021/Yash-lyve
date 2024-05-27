@@ -179,10 +179,8 @@ exports.deleteEvent = catchAsyncError(async (req, res, next) => {
     console.log(refund);
   } else {
     refund = "No transactions found on this event";
+    await event.destroy();
   }
-
-  // Delete the event
-  await event.destroy();
 
   res
     .status(StatusCodes.OK)
