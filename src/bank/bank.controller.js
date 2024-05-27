@@ -278,11 +278,13 @@ exports.refundAmountOnDeleteEvent = async (transactions) => {
 
       for (let transaction of transactions) {
         if (transaction.payment_status === "succeeded" && !transaction.charge) {
+          console.log("payment_status", transaction.payment_status, transaction.charge)
           arr[transaction.eventId] = {};
-          arr[transaction.eventId]["customers"] = transactions.customerId;
+          arr[transaction.eventId]["customers"] = transaction.customer_id;
           arr[transaction.eventId]["payment_status"] =
-            transactions.payment_status;
+            transaction.payment_status;
         }
+        console.log("customerId", transaction.customer_id)
       }
 
       for (let obj in arr) {
@@ -291,8 +293,12 @@ exports.refundAmountOnDeleteEvent = async (transactions) => {
           obj
         );
 
+        console.log("paymettttt", paymentIntents)
+
+
         if (arr[obj].payment_status === "succeeded") {
-          const refund = payRefund(
+          console.log("refuddddddddd", arr[obj])
+          const refund = await payRefund(
             paymentIntents.amount,
             paymentIntents.paymentIntentId
           );
@@ -303,13 +309,15 @@ exports.refundAmountOnDeleteEvent = async (transactions) => {
               {
                 charge: "refunded",
               },
-              { where: { eventId: obj, customerId: arr[obj].customerId } }
+              { where: { eventId: obj, customer_id: arr[obj].customers } }
             );
             resolve(updatedTransaction);
           }
         }
       }
+      console.log(arr)
     } catch (error) {
+      console.log("errroooooorrrrr", error)
       reject(error);
     }
   });
