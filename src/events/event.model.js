@@ -100,13 +100,13 @@ const eventModel = db.define(
       },
     },
     status: {
-      type: DataTypes.ENUM("Upcoming", "Live", "Completed", "Cancelled"),
+      type: DataTypes.ENUM("Upcoming", "Live", "Completed"),
       defaultValue: "Upcoming", // Default value for status
       allowNull: false,
       validate: {
         isIn: {
-          args: [["Upcoming", "Live", "Completed", "Cancelled"]],
-          msg: "Status must be one of: Upcoming, Live, Completed or Cancelled",
+          args: [["Upcoming", "Live", "Completed"]],
+          msg: "Status must be one of: Upcoming, Live or Completed",
         },
       },
     },
@@ -126,7 +126,10 @@ const eventModel = db.define(
       defaultValue: "none",
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    paranoid: true, // Enables soft delete functionality
+  }
 );
 
 const genreModel = db.define("Genre", {
