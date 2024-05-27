@@ -80,7 +80,7 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
   }
 
   const transaction = await Transaction.findOne({
-    where: { eventId },
+    where: { eventId: eventId, userId: userId },
     include: [
       {
         model: eventModel,
