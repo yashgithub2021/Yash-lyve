@@ -277,7 +277,7 @@ exports.refundAmountOnDeleteEvent = async (transactions) => {
       const arr = {};
 
       for (let transaction of transactions) {
-        if (transaction.payment_status === "succeeded") {
+        if (transaction.payment_status === "succeeded" && !transaction.charge) {
           arr[transaction.eventId] = {};
           arr[transaction.eventId]["customers"] = transactions.customerId;
           arr[transaction.eventId]["payment_status"] =
@@ -303,7 +303,7 @@ exports.refundAmountOnDeleteEvent = async (transactions) => {
               {
                 charge: "refunded",
               },
-              { where: { eventId: obj } }
+              { where: { eventId: obj, customerId: arr[obj].customerId } }
             );
             resolve(updatedTransaction);
           }

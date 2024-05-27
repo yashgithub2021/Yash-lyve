@@ -176,7 +176,6 @@ exports.deleteEvent = catchAsyncError(async (req, res, next) => {
 
   if (transactions.length > 0) {
     refund = await refundAmountOnDeleteEvent(transactions);
-    console.log(refund);
   } else {
     refund = "No transactions found on this event";
     await event.destroy();
