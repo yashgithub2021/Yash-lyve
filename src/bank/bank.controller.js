@@ -270,101 +270,51 @@ exports.croneJob = () => {
 };
 
 // When event deleted this function will run for refunds
-exports.refundAmountOnDeleteEvent = async (transactions) => {
-  console.log("id", transactions);
+exports.refundAmountOnDeleteEvent = async (transactions, eventId, next) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const arr = {};
+      const arr = [];
 
       for (let transaction of transactions) {
-        if (transaction.payment_status === "succeeded" && !transaction.charge) {
-          console.log("payment_status", transaction.payment_status, transaction.charge)
-          arr[transaction.eventId] = {};
-          arr[transaction.eventId]["customers"] = transaction.customer_id;
-          arr[transaction.eventId]["payment_status"] =
-            transaction.payment_status;
+        if (
+          transaction.payment_status === "succeeded" &&
+          transaction.charge !== "refunded"
+        ) {
+          arr.push(transaction.customer_id);
         }
-        console.log("customerId", transaction.customer_id)
       }
 
       for (let obj in arr) {
         const paymentIntents = await getPaymentIntentsByCustomer(
-          arr[obj].customers,
-          obj
+          arr[obj],
+          eventId
         );
 
-        console.log("paymettttt", paymentIntents)
+        console.log("pti", paymentIntents);
 
+        // if (paymentIntents.paymentIntentId) {
+        //   const refund = await payRefund(
+        //     paymentIntents.amount,
+        //     paymentIntents.paymentIntentId
+        //   );
 
-        if (arr[obj].payment_status === "succeeded") {
-          console.log("refuddddddddd", arr[obj])
-          const refund = await payRefund(
-            paymentIntents.amount,
-            paymentIntents.paymentIntentId
-          );
-
-          // updating charge field to refunded
-          if (refund.status === "succeeded") {
-            const updatedTransaction = await Transaction.update(
-              {
-                charge: "refunded",
-              },
-              { where: { eventId: obj, customer_id: arr[obj].customers } }
-            );
-            resolve(updatedTransaction);
-          }
-        }
+        //   // updating charge field to refunded
+        //   if (refund.status === "succeeded") {
+        //     const updatedTransaction = await Transaction.update(
+        //       {
+        //         charge: "refunded",
+        //       },
+        //       { where: { eventId: eventId, customer_id: arr[obj] } }
+        //     );
+        //     console.log("trans", updatedTransaction);
+        //     resolve(updatedTransaction);
+        //   }
+        // }
       }
-      console.log(arr)
     } catch (error) {
-      console.log("errroooooorrrrr", error)
-      reject(error);
+      reject(next(new ErrorHandler(error, StatusCodes.BAD_REQUEST)));
     }
   });
-
-  // const transactions = await Transaction.findAll({
-  //   where: { eventId: eventId },
-  // });
-
-  // if (!transactions) {
-  //   return next(
-  //     new ErrorHandler("Transaction not found", StatusCodes.NOT_FOUND)
-  //   );
-  // }
-
-  // const arr = {};
-
-  // for (let transaction of transactions) {
-  //   if (transaction.payment_status === "succeeded") {
-  //     arr[transaction.eventId] = {};
-  //     arr[transaction.eventId]["customers"] = transactions.customerId;
-  //     arr[transaction.eventId]["payment_status"] = transactions.payment_status;
-  //   }
-  // }
-
-  // for (let obj in arr) {
-  //   const paymentIntents = await getPaymentIntentsByCustomer(
-  //     arr[obj].customers,
-  //     obj
-  //   );
-
-  //   if (arr[obj].payment_status === "succeeded") {
-  //     const refund = payRefund(
-  //       paymentIntents.amount,
-  //       paymentIntents.paymentIntentId
-  //     );
-
-  //     // updating charge field to refunded
-  //     if (refund.status === "succeeded") {
-  //       await Transaction.update(
-  //         {
-  //           charge: "refunded",
-  //         },
-  //         { where: { eventId: obj } }
-  //       );
-  //     }
-  //   }
-  // }
 };
 
 // When event deleted this function will run for refunds
