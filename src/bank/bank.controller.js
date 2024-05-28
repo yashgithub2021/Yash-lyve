@@ -290,26 +290,26 @@ exports.refundAmountOnDeleteEvent = async (transactions, eventId, next) => {
           eventId
         );
 
-        console.log("pti", paymentIntents);
+        // console.log("pti", paymentIntents);
 
-        // if (paymentIntents.paymentIntentId) {
-        //   const refund = await payRefund(
-        //     paymentIntents.amount,
-        //     paymentIntents.paymentIntentId
-        //   );
+        if (paymentIntents.paymentIntentId) {
+          const refund = await payRefund(
+            paymentIntents.amount,
+            paymentIntents.paymentIntentId
+          );
 
-        //   // updating charge field to refunded
-        //   if (refund.status === "succeeded") {
-        //     const updatedTransaction = await Transaction.update(
-        //       {
-        //         charge: "refunded",
-        //       },
-        //       { where: { eventId: eventId, customer_id: arr[obj] } }
-        //     );
-        //     console.log("trans", updatedTransaction);
-        //     resolve(updatedTransaction);
-        //   }
-        // }
+          // updating charge field to refunded
+          if (refund.status === "succeeded") {
+            const updatedTransaction = await Transaction.update(
+              {
+                charge: "refunded",
+              },
+              { where: { eventId: eventId, customer_id: arr[obj] } }
+            );
+            console.log("trans", updatedTransaction);
+            resolve(updatedTransaction);
+          }
+        }
       }
     } catch (error) {
       reject(next(new ErrorHandler(error, StatusCodes.BAD_REQUEST)));
