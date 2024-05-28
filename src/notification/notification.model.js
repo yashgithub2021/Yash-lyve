@@ -27,7 +27,7 @@ const notificationModel = db.define(
     },
     date: {
       type: DataTypes.DATE,
-      defaultValue: Date.now,
+      defaultValue: () => new Date(Date.now() + 330 * 60 * 1000),
     },
     userAvatar: {
       type: DataTypes.STRING,

@@ -209,18 +209,18 @@ exports.register = catchAsyncError(async (req, res, next) => {
   } else {
     user = imageUrl
       ? await verifiedModel.create({
-          ...req.body,
-          role: "User",
-          fcm_token: fireBaseToken,
-          dob: new Date(dob),
-          avatar: imageUrl.Location,
-        })
+        ...req.body,
+        role: "User",
+        fcm_token: fireBaseToken,
+        dob: new Date(dob),
+        avatar: imageUrl.Location,
+      })
       : await verifiedModel.create({
-          ...req.body,
-          role: "User",
-          fcm_token: fireBaseToken,
-          dob: new Date(dob),
-        });
+        ...req.body,
+        role: "User",
+        fcm_token: fireBaseToken,
+        dob: new Date(dob),
+      });
   }
 
   const otp = generateOTP();

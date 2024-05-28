@@ -16,7 +16,13 @@ const {
   refundAmountOnCancelEvent,
 } = require("../bank/bank.controller");
 const Transaction = require("../transactions/transaction.model");
+const { notificationModel } = require("../notification");
 const messaging = firebase.messaging();
+
+const createNotification = async (userId, text, title, userAvatar) => {
+  await notificationModel.create({ userId, text, title, userAvatar });
+  console.log("Notification created successfully");
+};
 
 exports.createEvent = catchAsyncError(async (req, res, next) => {
   console.log("Create event", req.body);
@@ -1113,12 +1119,45 @@ exports.cancelEvent = catchAsyncError(async (req, res, next) => {
   const refund = await refundAmountOnCancelEvent(user.customerId, eventId);
 
   if (refund.status === "succeeded") {
-    await Transaction.update(
+    const refunded = await Transaction.update(
       {
         charge: "refunded",
       },
       { where: { id: transaction.id } }
     );
+
+    if (refunded) {
+      const message = `Your refund has been processed for the Cancelled Event: ${event.title}.`;
+      await createNotification(
+        user.id,
+        message,
+        "Payment Refund",
+        event.thumbnail
+      );
+
+      let token = user.fcm_token;
+      console.log("Target user FCM token:", token);
+
+      const fcmMessage = {
+        notification: {
+          title: "Payment Refund",
+          body: message,
+        },
+        token,
+        data: {
+          type: "Payment Refund",
+        },
+      };
+
+      try {
+        await messaging.send(fcmMessage);
+        console.log("Push notification sent successfully.");
+      } catch (error) {
+        // Handle error if FCM token is expired or invalid
+        console.error("Error sending push notification:", error);
+        // Log the error and proceed with the follow operation
+      }
+    }
   }
 
   res
