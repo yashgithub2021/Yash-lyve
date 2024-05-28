@@ -334,11 +334,35 @@ const getPaymentIntentsByCustomer = async (customerId, eventId) => {
       let amount;
       let paymentIntentId;
 
-      paymentIntents.data.forEach((paymentIntent) => {
-        if (paymentIntent && paymentIntent.metadata.eventId === eventId) {
+      paymentIntents.data.forEach(async (paymentIntent) => {
+        if (
+          paymentIntent &&
+          paymentIntent.metadata.eventId === eventId &&
+          paymentIntent.status === "succeeded"
+        ) {
           paymentIntentId = paymentIntent.id;
           amount = paymentIntent.amount;
+          // const charges = await stripe.charges.list({
+          //   payment_intent: paymentIntent.id,
+          // });
+
+          // return charges.data.forEach((charge) => {
+          //   if (!charge.refunded && charge.metadata.eventId === eventId) {
+          //     paymentIntentId = charge.payment_intent;
+          //     amount = charge.amount;
+          //     console.log(charge.payment_intent, charge.amount);
+          //   }
+          // });
         }
+
+        // if (
+        //   paymentIntent &&
+        //   paymentIntent.metadata.eventId === eventId &&
+        //   paymentIntent.status === "succeeded"
+        // ) {
+        //   paymentIntentId = paymentIntent.id;
+        //   amount = paymentIntent.amount;
+        // }
       });
 
       resolve({
@@ -352,8 +376,7 @@ const getPaymentIntentsByCustomer = async (customerId, eventId) => {
 };
 
 // pay refund to the users
-const payRefund = async (refundAmount, paymentIntentId) => {
-  // console.log(refundAmount, paymentIntentId);
+const payRefund = async (refundAmount, paymentIntentId, next) => {
   return new Promise(async (resolve, reject) => {
     try {
       const refund = await stripe.refunds.create({

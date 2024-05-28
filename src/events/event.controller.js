@@ -155,17 +155,24 @@ exports.deleteEvent = catchAsyncError(async (req, res, next) => {
   }
 
   // Check if the event start time is more than 24 hours in the future
-  const eventStartTime = new Date(event.event_date).getTime();
-  const currentTime = new Date().getTime();
-  const twentyFourHoursInMilliseconds = 24 * 60 * 60 * 1000;
+  if (event.status === "Completed") {
+    await event.destroy();
+    return res
+      .status(StatusCodes.OK)
+      .json({ success: true, message: "Event deleted Successfully" });
+  } else {
+    const eventStartTime = new Date(event.event_date).getTime();
+    const currentTime = new Date().getTime();
+    const twentyFourHoursInMilliseconds = 24 * 60 * 60 * 1000;
 
-  if (eventStartTime - currentTime <= twentyFourHoursInMilliseconds) {
-    return next(
-      new ErrorHandler(
-        "Event cannot be canceled within 24 hours of start time",
-        StatusCodes.BAD_GATEWAY
-      )
-    );
+    if (eventStartTime - currentTime <= twentyFourHoursInMilliseconds) {
+      return next(
+        new ErrorHandler(
+          "Event cannot be canceled within 24 hours of start time",
+          StatusCodes.BAD_GATEWAY
+        )
+      );
+    }
   }
 
   const transactions = await Transaction.findAll({
@@ -175,7 +182,8 @@ exports.deleteEvent = catchAsyncError(async (req, res, next) => {
   let refund;
 
   if (transactions.length > 0) {
-    refund = await refundAmountOnDeleteEvent(transactions);
+    refund = await refundAmountOnDeleteEvent(transactions, eventId, next);
+    await event.destroy();
   } else {
     refund = "No transactions found on this event";
     await event.destroy();
