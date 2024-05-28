@@ -332,6 +332,7 @@ const getPaymentIntentsByCustomer = async (customerId, eventId) => {
       });
 
       let amount;
+      // let intentId;
       let paymentIntentId;
 
       paymentIntents.data.forEach(async (paymentIntent) => {
@@ -342,28 +343,20 @@ const getPaymentIntentsByCustomer = async (customerId, eventId) => {
         ) {
           paymentIntentId = paymentIntent.id;
           amount = paymentIntent.amount;
-          // const charges = await stripe.charges.list({
-          //   payment_intent: paymentIntent.id,
-          // });
-
-          // return charges.data.forEach((charge) => {
-          //   if (!charge.refunded && charge.metadata.eventId === eventId) {
-          //     paymentIntentId = charge.payment_intent;
-          //     amount = charge.amount;
-          //     console.log(charge.payment_intent, charge.amount);
-          //   }
-          // });
         }
-
-        // if (
-        //   paymentIntent &&
-        //   paymentIntent.metadata.eventId === eventId &&
-        //   paymentIntent.status === "succeeded"
-        // ) {
-        //   paymentIntentId = paymentIntent.id;
-        //   amount = paymentIntent.amount;
-        // }
       });
+
+      // const charges = await stripe.charges.list({
+      //   payment_intent: intentId,
+      // });
+
+      // charges.data.forEach((charge) => {
+      //   if (!charge.refunded && charge.metadata.eventId === eventId) {
+      //     paymentIntentId = charge.payment_intent;
+      //     amount = charge.amount;
+      //     console.log(charge.payment_intent, charge.amount);
+      //   }
+      // });
 
       resolve({
         amount,
