@@ -189,6 +189,41 @@ exports.deleteEvent = catchAsyncError(async (req, res, next) => {
 
   if (transactions.length > 0) {
     refund = await refundAmountOnDeleteEvent(transactions, eventId, next);
+    if (refund) {
+      const notificationPromises = transactions.map(async (transaction) => {
+        const userId = transaction.userId; // Assuming this is how you get the user ID from the transaction
+        const user = await userModel.findByPk(userId); // Assuming userModel is your user model
+
+        if (user) {
+          const notificationText = `The event ${event.title} has been canceled. You will receive a refund.`;
+          const notificationTitle = "Event Canceled";
+          await createNotification(userId, notificationText, notificationTitle, event.thumbnail);
+          if (user.fcm_token) {
+            const fcmMessage = {
+              notification: {
+                title: "Event Canceled",
+                body: `The event ${event.title} in which you had a spot reserved is canceled by your content creator. You will be refunded. Explore Other amazing events on the app.`,
+              },
+              token: user.fcm_token,
+              data: {
+                type: "event_cancelled",
+                eventId: eventId,
+              },
+            };
+
+            try {
+              await messaging.send(fcmMessage);
+              console.log(`Notification sent to user ${userId}`);
+            } catch (error) {
+              console.error(`Error sending notification to user ${userId}:`, error);
+            }
+          }
+        }
+      });
+      // Wait for all notifications to be sent
+      await Promise.all(notificationPromises);
+
+    }
     await event.destroy();
   } else {
     refund = "No transactions found on this event";
