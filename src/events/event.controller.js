@@ -197,7 +197,12 @@ exports.deleteEvent = catchAsyncError(async (req, res, next) => {
         if (user) {
           const notificationText = `The event ${event.title} has been canceled. You will receive a refund.`;
           const notificationTitle = "Event Canceled";
-          await createNotification(userId, notificationText, notificationTitle, event.thumbnail);
+          await createNotification(
+            userId,
+            notificationText,
+            notificationTitle,
+            event.thumbnail
+          );
           if (user.fcm_token) {
             const fcmMessage = {
               notification: {
@@ -215,14 +220,16 @@ exports.deleteEvent = catchAsyncError(async (req, res, next) => {
               await messaging.send(fcmMessage);
               console.log(`Notification sent to user ${userId}`);
             } catch (error) {
-              console.error(`Error sending notification to user ${userId}:`, error);
+              console.error(
+                `Error sending notification to user ${userId}:`,
+                error
+              );
             }
           }
         }
       });
       // Wait for all notifications to be sent
       await Promise.all(notificationPromises);
-
     }
     await event.destroy();
   } else {
@@ -507,6 +514,10 @@ exports.getEvents = catchAsyncError(async (req, res, next) => {
       { title: { [Op.iLike]: `%${search_query}%` } },
       { host: { [Op.iLike]: `%${search_query}%` } },
     ];
+  }
+
+  if (userId) {
+    where.userId = { [Op.ne]: userId }; // Exclude events created by the current user
   }
 
   if (page_number && page_size) {

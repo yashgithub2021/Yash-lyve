@@ -1,6 +1,7 @@
 const ErrorHandler = require("../../utils/errorHandler");
 const catchAsyncError = require("../../utils/catchAsyncError");
 const contentModel = require("./content.model");
+const { StatusCodes } = require("http-status-codes");
 
 const TT = "TERMS_AND_CONDITIONS";
 const PP = "PRIVACY_POLICY";
@@ -55,6 +56,12 @@ exports.getTT = catchAsyncError(async (req, res, next) => {
     attributes: ["desc"],
   });
 
+  if (!content) {
+    return next(
+      new ErrorHandler("No terms and conditions found", StatusCodes.NOT_FOUND)
+    );
+  }
+
   res.status(200).json({ success: true, tos: content.desc });
 });
 
@@ -64,6 +71,12 @@ exports.getPP = catchAsyncError(async (req, res, next) => {
     where: { title: PP },
     attributes: ["desc"],
   });
+
+  if (!content) {
+    return next(
+      new ErrorHandler("No privacy policy found", StatusCodes.NOT_FOUND)
+    );
+  }
 
   res.status(200).json({ success: true, privacy_policy: content.desc });
 });
