@@ -144,6 +144,7 @@ exports.addPrimaryBank = catchAsyncError(async (req, res, next) => {
 // delete bank details
 exports.deleteBankAccountDetails = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
+  const { accountId } = req.params;
 
   const user = await userModel.findByPk(userId);
 
@@ -151,9 +152,7 @@ exports.deleteBankAccountDetails = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
   }
 
-  const { bank_account_id } = user;
-
-  const deleteAccount = await deleteBankDetails(bank_account_id);
+  const deleteAccount = await deleteBankDetails(accountId);
 
   let updatedData = {};
 
@@ -162,7 +161,9 @@ exports.deleteBankAccountDetails = catchAsyncError(async (req, res, next) => {
   }
   await user.update(updatedData);
 
-  res.status(200).json({ success: true, message: "Bank deleted successfully" });
+  res
+    .status(200)
+    .json({ success: true, message: "Bank account deleted successfully" });
 });
 
 // Login Link screen for event creator
