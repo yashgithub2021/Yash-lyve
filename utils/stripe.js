@@ -258,14 +258,14 @@ const getBankDetails = async () => {
 
 // Delete bank details on stripe
 const deleteBankDetails = async (bankAccountId) => {
-  try {
-    const deleted = await stripe.accounts.del(bankAccountId);
-
-    return deleted;
-  } catch (error) {
-    console.log(error);
-    throw new Error(error.message);
-  }
+  return new Promise(async (resolve, reject) => {
+    try {
+      const deleted = await stripe.accounts.del(bankAccountId);
+      resolve(deleted);
+    } catch (error) {
+      reject(error.message);
+    }
+  });
 };
 
 // Generate login link stripe
