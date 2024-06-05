@@ -282,6 +282,7 @@ exports.payoutTransactions = catchAsyncError(async (req, res, next) => {
 
   if (month && year) {
     const filteredByMonthYear = transactions.data.filter((transactionObj) => {
+      console.log(transactionObj);
       const eventDate = new Date(transactionObj.metadata.eventDate * 1000);
       const date = eventDate.toISOString().split("T")[0];
       const [transactionYear, transactionMonth] = date.split("-");
@@ -305,6 +306,7 @@ exports.payoutTransactions = catchAsyncError(async (req, res, next) => {
     });
   } else {
     transactions.data.forEach((transactionObj) => {
+      console.log(transactionObj);
       const eventDate = new Date(transactionObj.metadata.eventDate * 1000);
       transactionObj.metadata.eventDate = eventDate.toISOString().split("T")[0];
       transactionObj.metadata.status =
