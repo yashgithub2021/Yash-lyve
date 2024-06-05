@@ -469,8 +469,11 @@ exports.getEvents = catchAsyncError(async (req, res, next) => {
     order: [["createdAt", "DESC"]],
   };
 
+  // if (status) {
+  //   where.status = status.charAt(0).toUpperCase() + status.slice(1);
+  // }
   if (status) {
-    where.status = status.charAt(0).toUpperCase() + status.slice(1);
+    where.status = status;
   }
 
   if (genre) {
@@ -567,6 +570,125 @@ exports.getEvents = catchAsyncError(async (req, res, next) => {
 
   res.status(200).json({ success: true, events: eventsWithWishlist });
 });
+
+// exports.getEvents = catchAsyncError(async (req, res, next) => {
+//   const { status, page_number, page_size, genre, wishlisted, search_query } =
+//     req.query;
+//   const { userId } = req;
+
+//   let where = {};
+//   const query = {
+//     where,
+//     include: [
+//       {
+//         model: genreModel,
+//         as: "genre",
+//         attributes: ["id", "name", "thumbnail"],
+//       },
+//       {
+//         model: userModel,
+//         as: "creator",
+//         attributes: ["id", "username", "avatar"],
+//         where: { deletedAt: null },
+//       },
+//     ],
+//     order: [["createdAt", "DESC"]],
+//   };
+
+//   if (status) {
+//     where.status = status;
+//   }
+
+//   if (genre) {
+//     const genreArray = Array.isArray(genre) ? genre : [genre];
+//     const genreIds = [];
+
+//     for (const genreName of genreArray) {
+//       const genreRecord = await genreModel.findOne({
+//         where: { name: genreName },
+//       });
+
+//       if (genreRecord) {
+//         genreIds.push(genreRecord.id);
+//       }
+//     }
+
+//     if (genreIds.length > 0) {
+//       // Add the genreIds to the query with OR condition
+//       query.where = {
+//         ...query.where,
+//         Genre: { [Op.or]: genreIds },
+//       };
+//     }
+//   }
+
+//   if (wishlisted === "true" && userId) {
+//     const wishlistEvents = await Wishlist.findAll({
+//       where: { userId, isWishlisted: true },
+//       attributes: ["eventId"],
+//     });
+
+//     const eventIds = wishlistEvents.map(
+//       (wishlistEvent) => wishlistEvent.eventId
+//     );
+
+//     where.id = { [Op.in]: eventIds };
+//   }
+
+//   if (search_query) {
+//     where[Op.or] = [
+//       { title: { [Op.iLike]: `%${search_query}%` } },
+//       { host: { [Op.iLike]: `%${search_query}%` } },
+//     ];
+//   }
+
+//   if (page_number && page_size) {
+//     const currentPage = parseInt(page_number, 10) || 1;
+//     const limit = parseInt(page_size, 10) || 10;
+//     const offset = (currentPage - 1) * limit;
+
+//     query.offset = offset;
+//     query.limit = limit;
+//   }
+
+//   console.log("Query", query);
+
+//   const events = await eventModel.findAll(query);
+
+//   // Add the isWishlisted field to each event
+//   const eventsWithWishlist = await Promise.all(
+//     events.map(async (event) => {
+//       const isWishlisted = await Wishlist.findOne({
+//         where: { userId, eventId: event.id, isWishlisted: true },
+//       });
+
+//       const isLiked = await Wishlist.findOne({
+//         where: { userId, eventId: event.id, liked: true },
+//       });
+//       const isDisLiked = await Wishlist.findOne({
+//         where: { userId, eventId: event.id, disliked: true },
+//       });
+
+//       const likesCount = await Wishlist.count({
+//         where: { eventId: event.id, liked: true },
+//       });
+//       const dislikesCount = await Wishlist.count({
+//         where: { eventId: event.id, disliked: true },
+//       });
+
+//       return {
+//         ...event.toJSON(),
+//         isWishlisted: !!isWishlisted,
+//         isLiked: !!isLiked,
+//         isDisLiked: !!isDisLiked,
+//         likes_count: likesCount,
+//         dislikes_count: dislikesCount,
+//       };
+//     })
+//   );
+
+//   res.status(200).json({ success: true, events: eventsWithWishlist });
+// });
 
 exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
