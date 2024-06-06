@@ -1272,17 +1272,24 @@ exports.goLiveEvent = catchAsyncError(async (req, res, next) => {
     );
   }
 
-  // Get the event time
-  const eventTime = moment(event.event_time, "HH:mm");
+  const givenDate = event.event_date.toISOString();
+  const givenTime = event.event_time;
 
-  // Get the current time
-  const currentTime = moment();
+  const combinedDateTimeString = `${givenDate.split("T")[0]}T${givenTime}`;
+  const combinedDateTime = new Date(combinedDateTimeString);
 
-  // Calculate the allowable start time (10 minutes before the event time)
-  const allowableStartTime = moment(eventTime).subtract(5, "minutes");
+  const fiveMinutesInMillis = 5 * 60 * 1000;
+  const modifiedDateTime = new Date(
+    combinedDateTime.getTime() - fiveMinutesInMillis
+  );
 
-  // Check if the current time is within the allowable window
-  const canGoLive = currentTime.isSameOrAfter(allowableStartTime);
+  const currentTime = new Date();
+
+  let canGoLive = false;
+
+  if (modifiedDateTime <= currentTime) {
+    canGoLive = true;
+  }
 
   res.status(StatusCodes.OK).json({ success: true, goLive: canGoLive });
 });
