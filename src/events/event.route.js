@@ -17,6 +17,7 @@ const {
   getStreamedDetails,
   updateEvent,
   getSingleEvent,
+  goLiveEvent,
 } = require("./event.controller");
 
 router.post("/create", upload.single("thumbnail"), auth, createEvent);
@@ -46,5 +47,7 @@ router.get("/stream-details/:eventId", auth, getStreamedDetails);
 router.route("/recommended-events").get(auth, getRecommendedEvents);
 
 router.get("/get-upcoming-events", auth, getUpcomingEvents);
+
+router.get("/go-live-event/:eventId", auth, goLiveEvent);
 
 module.exports = router;
