@@ -11,6 +11,7 @@ const { db } = require("../../config/database");
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
 const { firebase } = require("../../utils/firebase");
+const moment = require("moment");
 const {
   refundAmountOnDeleteEvent,
   refundAmountOnCancelEvent,
@@ -1247,6 +1248,43 @@ exports.getEventsWithStatus = catchAsyncError(async (req, res, next) => {
   }
 
   res.status(200).json({ success: true, events });
+});
+
+// Go live event
+exports.goLiveEvent = catchAsyncError(async (req, res, next) => {
+  const { eventId } = req.params;
+  const { userId } = req;
+
+  const event = await eventModel.findByPk(eventId);
+
+  if (!event) {
+    return res
+      .status(StatusCodes.NOT_FOUND)
+      .json({ message: "Event not found" });
+  }
+
+  if (event.userId !== userId) {
+    return next(
+      new ErrorHandler(
+        "You are not authorized to access this event",
+        StatusCodes.UNAUTHORIZED
+      )
+    );
+  }
+
+  // Get the event time
+  const eventTime = moment(event.event_time, "HH:mm");
+
+  // Get the current time
+  const currentTime = moment();
+
+  // Calculate the allowable start time (10 minutes before the event time)
+  const allowableStartTime = moment(eventTime).subtract(5, "minutes");
+
+  // Check if the current time is within the allowable window
+  const canGoLive = currentTime.isSameOrAfter(allowableStartTime);
+
+  res.status(StatusCodes.OK).json({ success: true, goLive: canGoLive });
 });
 
 // add cancel event route
