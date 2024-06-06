@@ -1256,6 +1256,7 @@ exports.goLiveEvent = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
 
   const event = await eventModel.findByPk(eventId);
+  console.log("runn");
 
   if (!event) {
     return res
