@@ -1281,10 +1281,11 @@ exports.goLiveEvent = catchAsyncError(async (req, res, next) => {
 
   const fiveMinutesInMillis = 5 * 60 * 1000;
   const modifiedDateTime = new Date(
-    combinedDateTime.getTime() - fiveMinutesInMillis
+    combinedDateTime.getTime() - fiveMinutesInMillis + 330 * 60 * 1000
   );
 
   const currentTime = new Date();
+  console.log(currentTime);
 
   let canGoLive = false;
 
