@@ -1285,10 +1285,14 @@ exports.goLiveEvent = catchAsyncError(async (req, res, next) => {
   );
 
   const currentTime = new Date();
+  const addedTime = new Date(currentTime);
+  addedTime.setHours(addedTime.getHours() + 5);
+  addedTime.setMinutes(addedTime.getMinutes() + 30);
+  console.log(addedTime);
 
   let canGoLive = false;
 
-  if (modifiedDateTime <= currentTime) {
+  if (modifiedDateTime <= addedTime) {
     canGoLive = true;
   }
 
