@@ -118,6 +118,7 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
 
   if (!transaction) {
     const eventDetails = {
+      userId: event.creator.id,
       eventId: event.id,
       title: event.title,
       eventTime: event.event_time,
