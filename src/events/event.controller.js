@@ -1296,6 +1296,51 @@ exports.goLiveEvent = catchAsyncError(async (req, res, next) => {
     canGoLive = true;
   }
 
+  const users = await Transaction.findAll({
+    where: { eventId: eventId },
+  });
+
+  const userIds = users.map((user) => user.userId)
+
+  const paiduser = await userModel.findAll({
+    attributes: ["id", "fcm_token"],
+    where: {
+      id: {
+        [Op.in]: userIds
+      }
+    }
+  })
+
+  const fcmTokens = paiduser.map((user) => user.fcm_token)
+
+  const notificationMessage = {
+    notification: {
+      title: "Live Event Started",
+      body: "The live event you were waiting for has started! Join the stream now.",
+    },
+  };
+
+  const sendPromises = [];
+
+  // Iterate over the array of dummy tokens
+  fcmTokens.forEach((token) => {
+    const message = { ...notificationMessage, token };
+    const sendPromise = messaging.send(message);
+    sendPromises.push(sendPromise);
+  });
+
+  try {
+    // Wait for all promises to resolve (i.e., all notifications are sent)
+    const responses = await Promise.all(sendPromises);
+    console.log("Push notifications sent successfully:", responses);
+    // res.status(200).send(responses);
+  } catch (error) {
+    console.error("Error sending push notifications:", error);
+    // res.status(500).send({ error: "Failed to send push notifications" });
+  }
+
+  console.log("paiiidddddd", fcmTokens)
+
   res.status(StatusCodes.OK).json({ success: true, goLive: canGoLive });
 });
 
