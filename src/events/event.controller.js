@@ -11,7 +11,6 @@ const { db } = require("../../config/database");
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
 const { firebase } = require("../../utils/firebase");
-const moment = require("moment");
 const {
   refundAmountOnDeleteEvent,
   refundAmountOnCancelEvent,
@@ -915,6 +914,25 @@ exports.getMyUpcomingEvents = catchAsyncError(async (req, res, next) => {
   res.status(200).json({ success: true, myUpcomingEvents });
 });
 
+exports.getMyLiveEvent = catchAsyncError(async (req, res, next) => {
+  const { userId } = req; // Assuming user ID is stored in req.user
+
+  const myLiveEvent = await eventModel.findAll({
+    where: {
+      userId: userId,
+      status: "Live",
+    },
+    attributes: ["id", "title", "event_date", "event_time", "thumbnail"],
+    order: [["event_date", "ASC"]], // Order by event date ascending
+  });
+
+  if (!myLiveEvent) {
+    return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
+  }
+
+  res.status(200).json({ success: true, myLiveEvent });
+});
+
 exports.globalSearch = catchAsyncError(async (req, res, next) => {
   const { search_query, page_number, page_size } = req.query;
   const { userId } = req;
@@ -1300,18 +1318,18 @@ exports.goLiveEvent = catchAsyncError(async (req, res, next) => {
     where: { eventId: eventId },
   });
 
-  const userIds = users.map((user) => user.userId)
+  const userIds = users.map((user) => user.userId);
 
   const paiduser = await userModel.findAll({
     attributes: ["id", "fcm_token"],
     where: {
       id: {
-        [Op.in]: userIds
-      }
-    }
-  })
+        [Op.in]: userIds,
+      },
+    },
+  });
 
-  const fcmTokens = paiduser.map((user) => user.fcm_token)
+  const fcmTokens = paiduser.map((user) => user.fcm_token);
 
   const notificationMessage = {
     notification: {
@@ -1339,7 +1357,7 @@ exports.goLiveEvent = catchAsyncError(async (req, res, next) => {
     // res.status(500).send({ error: "Failed to send push notifications" });
   }
 
-  console.log("paiiidddddd", fcmTokens)
+  console.log("paiiidddddd", fcmTokens);
 
   res.status(StatusCodes.OK).json({ success: true, goLive: canGoLive });
 });
