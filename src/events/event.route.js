@@ -18,6 +18,7 @@ const {
   updateEvent,
   getSingleEvent,
   goLiveEvent,
+  getMyLiveEvent,
 } = require("./event.controller");
 
 router.post("/create", upload.single("thumbnail"), auth, createEvent);
@@ -39,6 +40,8 @@ router.get("/get-following-events", auth, getFollowingEvents);
 router.get("/global-search", auth, globalSearch);
 
 router.get("/my-upcoming-events", auth, getMyUpcomingEvents);
+
+router.get("/my-live-event", auth, getMyLiveEvent);
 
 router.get("/user-events/:userId", auth, getUserEvents);
 
