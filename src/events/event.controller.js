@@ -784,6 +784,7 @@ exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
         model: userModel,
         as: "creator",
         attributes: ["id", "username", "avatar"],
+        paranoid: false, // Include soft-deleted users
       },
     ],
   });
