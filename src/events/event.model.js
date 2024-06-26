@@ -125,6 +125,22 @@ const eventModel = db.define(
       type: DataTypes.STRING,
       defaultValue: "none",
     },
+    totalGuest: {
+      type: DataTypes.STRING,
+      defaultValue: "none",
+    },
+    totalLikes: {
+      type: DataTypes.STRING,
+      defaultValue: "none",
+    },
+    totalDislikes: {
+      type: DataTypes.STRING,
+      defaultValue: "none",
+    },
+    totalComments: {
+      type: DataTypes.STRING,
+      defaultValue: "none",
+    },
   },
   {
     timestamps: true,
