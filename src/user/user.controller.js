@@ -346,6 +346,8 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
 
   // Generate JWT token for the user
   const token = user.getJWTToken();
+  const notificationText = `Welcome to Lyvechat and unlock the events in the modern day of virtuality`;
+  await createNotification(user.id, notificationText, "Account Created", user.avatar);
 
   res.status(StatusCodes.CREATED).json({ success: true, user, token });
 });
