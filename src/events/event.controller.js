@@ -847,6 +847,7 @@ exports.globalSearch = catchAsyncError(async (req, res, next) => {
   // Search users based on the search query
   const users = await userModel.findAll({
     where: {
+      id: { [Op.ne]: userId }, // Exclude current user
       [Op.or]: [{ username: { [Op.iLike]: `%${search_query}%` } }],
     },
     ...query,
