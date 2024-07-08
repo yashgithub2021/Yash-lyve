@@ -21,14 +21,21 @@ const addLikeToEvent = async (userId, eventId) => {
     });
     console.log(userId, eventId, existingLike);
 
+    let message;
+
     // If the user has already liked the event, do nothing
     if (existingLike) {
       if (!existingLike.liked) {
         // Create or update the like status in the Wishlist table
         existingLike.liked = true;
         existingLike.disliked = false;
-
         await existingLike.save();
+        return (message = "Like add to event");
+      } else if (existingLike.liked) {
+        existingLike.liked = false;
+        existingLike.disliked = false;
+        await existingLike.save();
+        return (message = "Unlike add to event");
       }
     } else {
       await Wishlist.create({ userId, eventId, liked: true, disliked: false });
@@ -51,6 +58,8 @@ const addDislikeToEvent = async (userId, eventId) => {
     });
     console.log(userId, eventId, existingLike);
 
+    let message;
+
     // If the user has already liked the event, do nothing
     if (existingLike) {
       if (!existingLike.disliked) {
@@ -59,6 +68,12 @@ const addDislikeToEvent = async (userId, eventId) => {
         existingLike.disliked = true;
 
         await existingLike.save();
+        return (message = "Dislike added to event");
+      } else if (existingLike.disliked) {
+        existingLike.disliked = false;
+        existingLike.liked = false;
+        await existingLike.save();
+        return (message = "undislike added to event");
       }
     } else {
       await Wishlist.create({ userId, eventId, liked: false, disliked: true });
@@ -121,15 +136,15 @@ exports.likeEvent = catchAsyncError(async (req, res) => {
       .status(StatusCodes.NOT_FOUND)
       .json({ message: "User not found" });
   }
-  await addLikeToEvent(userId, eventId);
+  const likeDislike = await addLikeToEvent(userId, eventId);
+
+  console.log("asasma", likeDislike);
 
   const eventCreatorId = event.userId;
   const message = `${user.username} liked your event: ${event.title}`;
   await createNotification(eventCreatorId, message, "like", user.avatar);
 
-  res
-    .status(StatusCodes.OK)
-    .json({ success: true, message: "Like added to event" });
+  res.status(StatusCodes.OK).json({ success: true, message: likeDislike });
 });
 
 exports.wishlistEvent = catchAsyncError(async (req, res) => {
@@ -144,6 +159,6 @@ exports.dislikeEvent = catchAsyncError(async (req, res) => {
   const { userId } = req;
   const { eventId } = req.params;
 
-  await addDislikeToEvent(userId, eventId);
-  res.status(200).json({ success: true, message: "Event Disliked" });
+  const disliked = await addDislikeToEvent(userId, eventId);
+  res.status(200).json({ success: true, message: disliked });
 });

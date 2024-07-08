@@ -8,10 +8,49 @@ const { Op } = require("sequelize");
 const formattedQuery = require("../../utils/apiFeatures");
 const { Wishlist } = require("../wishlist");
 const { db } = require("../../config/database");
+const secret_key = process.env.STRIPE_SECRET_KEY;
+const stripe = require("stripe")(secret_key);
+const { firebase } = require("../../utils/firebase");
+const {
+  refundAmountOnDeleteEvent,
+  refundAmountOnCancelEvent,
+} = require("../bank/bank.controller");
+const Transaction = require("../transactions/transaction.model");
+const { notificationModel } = require("../notification");
+const messaging = firebase.messaging();
+
+const createNotification = async (userId, text, title, userAvatar) => {
+  await notificationModel.create({ userId, text, title, userAvatar });
+  console.log("Notification created successfully");
+};
 
 exports.createEvent = catchAsyncError(async (req, res, next) => {
   console.log("Create event", req.body);
   const { userId } = req;
+
+  const user = await userModel.findByPk(userId);
+
+  if (!user) {
+    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
+  }
+
+  if (!user.bank_account_id) {
+    return next(
+      new ErrorHandler("Please add bank first", StatusCodes.NOT_FOUND)
+    );
+  }
+
+  const confirmAccount = await stripe.accounts.retrieve(user.bank_account_id);
+
+  if (confirmAccount.capabilities.transfers !== "active") {
+    return next(
+      new ErrorHandler(
+        "Stripe account verification is pending",
+        StatusCodes.BAD_REQUEST
+      )
+    );
+  }
+
   const { genre } = req.body;
   const genreReq = await genreModel.findOne({ where: { name: genre } });
   const creator = await userModel.findByPk(userId);
@@ -19,15 +58,13 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
   if (!genreReq)
     return next(new ErrorHandler("Genre not found", StatusCodes.NOT_FOUND));
 
-  // const thumbnailFile = req.file;
   const thumbnailFile = req.file;
   if (!thumbnailFile) {
     throw new ErrorHandler("Thumbnail is required", StatusCodes.BAD_REQUEST);
   }
-  if (thumbnailFile) {
-    const imageUrl = await s3Uploadv2(thumbnailFile);
-    req.body.thumbnail = imageUrl.Location;
-  }
+
+  const imageUrl = await s3Uploadv2(thumbnailFile);
+  req.body.thumbnail = imageUrl.Location;
 
   const eventData = {
     ...req.body,
@@ -37,11 +74,75 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
   await event.setGenre(genreReq);
   await event.setCreator(creator);
 
-  const newEvent = await eventModel.findByPk(event.id, {
-    include: [{ model: genreModel, as: "genre", attributes: ["id", "name"] }],
+  const followerIds = await db.query(
+    `SELECT "follower_user_id"
+     FROM "Follow"
+     WHERE "following_user_id" = '${userId}'`,
+    { type: db.QueryTypes.SELECT }
+  );
+
+  // Extract user IDs from the result
+  const userIds = followerIds.map((follower) => follower.follower_user_id);
+
+  // Fetch FCM tokens of followers
+  const followers = await userModel.findAll({
+    attributes: ["id", "fcm_token"],
+    where: {
+      id: {
+        [Op.in]: userIds,
+      },
+      fcm_token: {
+        [Op.not]: null, // Ensure fcm_token is not null
+      },
+    },
   });
 
-  res.status(StatusCodes.CREATED).json({ event: newEvent });
+  // Extract FCM tokens from the result
+  const fcmTokens = followers.map((follower) => follower.fcm_token);
+
+  console.log("FCM Tokens:", fcmTokens);
+
+  const notificationMessage = {
+    notification: {
+      title: "New Event Recommendation!",
+      body: "You have a new event recommendation from your favorite content creator! Check out their profile.",
+    },
+  };
+
+  // Prepare an array to hold promises for sending notifications to each device
+  const sendPromises = fcmTokens.map((token) => {
+    const message = { ...notificationMessage, token };
+    return messaging.send(message);
+  });
+
+  try {
+    // Wait for all promises to resolve (i.e., all notifications are sent)
+    const responses = await Promise.all(sendPromises);
+    console.log("Push notifications sent successfully:", responses);
+
+    // Create notification for the user
+    const notificationText = `You have a new event recommendation from ${creator.name}.`;
+    await createNotification(
+      userId,
+      notificationText,
+      "New Event Recommendation",
+      creator.avatar
+    );
+
+    const newEvent = await eventModel.findByPk(event.id, {
+      include: [{ model: genreModel, as: "genre", attributes: ["id", "name"] }],
+    });
+
+    res.status(StatusCodes.CREATED).json({ event: newEvent });
+  } catch (error) {
+    console.error("Error sending push notifications:", error);
+    next(
+      new ErrorHandler(
+        "Failed to send push notifications",
+        StatusCodes.INTERNAL_SERVER_ERROR
+      )
+    );
+  }
 });
 
 exports.deleteEvent = catchAsyncError(async (req, res, next) => {
@@ -66,12 +167,86 @@ exports.deleteEvent = catchAsyncError(async (req, res, next) => {
       .json({ success: false, message: "Unauthorized" });
   }
 
-  // Delete the event
-  await event.destroy();
+  // Check if the event start time is more than 24 hours in the future
+  if (event.status === "Completed") {
+    await event.destroy();
+    return res
+      .status(StatusCodes.OK)
+      .json({ success: true, message: "Event deleted Successfully" });
+  } else {
+    const eventStartTime = new Date(event.event_date).getTime();
+    const currentTime = new Date().getTime();
+    const twentyFourHoursInMilliseconds = 24 * 60 * 60 * 1000;
+
+    if (eventStartTime - currentTime <= twentyFourHoursInMilliseconds) {
+      return next(
+        new ErrorHandler(
+          "Event cannot be canceled within 24 hours of start time",
+          StatusCodes.BAD_GATEWAY
+        )
+      );
+    }
+  }
+
+  const transactions = await Transaction.findAll({
+    where: { eventId: eventId },
+  });
+
+  let refund;
+
+  if (transactions.length > 0) {
+    refund = await refundAmountOnDeleteEvent(transactions, eventId, next);
+    if (refund) {
+      const notificationPromises = transactions.map(async (transaction) => {
+        const userId = transaction.userId;
+        const user = await userModel.findByPk(userId);
+
+        if (user) {
+          const notificationText = `The event ${event.title} has been canceled. You will receive a refund.`;
+          const notificationTitle = "Event Canceled";
+          await createNotification(
+            userId,
+            notificationText,
+            notificationTitle,
+            event.thumbnail
+          );
+          if (user.fcm_token) {
+            const fcmMessage = {
+              notification: {
+                title: "Event Canceled",
+                body: `The event ${event.title} in which you had a spot reserved is canceled by your content creator. You will be refunded. Explore Other amazing events on the app.`,
+              },
+              token: user.fcm_token,
+              data: {
+                type: "event_cancelled",
+                eventId: eventId,
+              },
+            };
+
+            try {
+              await messaging.send(fcmMessage);
+              console.log(`Notification sent to user ${userId}`);
+            } catch (error) {
+              console.error(
+                `Error sending notification to user ${userId}:`,
+                error
+              );
+            }
+          }
+        }
+      });
+      // Wait for all notifications to be sent
+      await Promise.all(notificationPromises);
+    }
+    await event.destroy();
+  } else {
+    refund = "No transactions found on this event";
+    await event.destroy();
+  }
 
   res
     .status(StatusCodes.OK)
-    .json({ success: true, message: "Event deleted Successfully" });
+    .json({ success: true, message: "Event deleted Successfully", refund });
 });
 
 exports.updateEvent = catchAsyncError(async (req, res, next) => {
@@ -114,6 +289,10 @@ exports.updateEvent = catchAsyncError(async (req, res, next) => {
     entry_fee,
     status,
     event_duration,
+    totalLikes,
+    totalDislikes,
+    totalGuest,
+    totalComments,
   } = req.body;
 
   if (title) updateData.title = title;
@@ -124,6 +303,10 @@ exports.updateEvent = catchAsyncError(async (req, res, next) => {
   if (entry_fee) updateData.entry_fee = entry_fee;
   if (status) updateData.status = status;
   if (event_duration) updateData.event_duration = event_duration;
+  if (totalGuest) updateData.totalGuest = totalGuest;
+  if (totalLikes) updateData.totalLikes = totalLikes;
+  if (totalDislikes) updateData.totalDislikes = totalDislikes;
+  if (totalComments) updateData.totalComments = totalComments;
 
   // Update the event
   await event.update(updateData);
@@ -301,8 +484,11 @@ exports.getEvents = catchAsyncError(async (req, res, next) => {
     order: [["createdAt", "DESC"]],
   };
 
+  // if (status) {
+  //   where.status = status.charAt(0).toUpperCase() + status.slice(1);
+  // }
   if (status) {
-    where.status = status.charAt(0).toUpperCase() + status.slice(1);
+    where.status = status;
   }
 
   if (genre) {
@@ -346,6 +532,10 @@ exports.getEvents = catchAsyncError(async (req, res, next) => {
       { title: { [Op.iLike]: `%${search_query}%` } },
       { host: { [Op.iLike]: `%${search_query}%` } },
     ];
+  }
+
+  if (userId) {
+    where.userId = { [Op.ne]: userId }; // Exclude events created by the current user
   }
 
   if (page_number && page_size) {
@@ -404,10 +594,22 @@ exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
     order: [["createdAt", "DESC"]], // Order events by creation date in descending order
   };
 
+  // if (status) {
+  //   query.where = {
+  //     status,
+  //   };
+  // }
+
   if (status) {
-    query.where = {
-      status,
-    };
+    if (status === "Live" || status === "Upcoming") {
+      query.where = {
+        status: status,
+      };
+    } else {
+      query.where = {
+        status: ["Upcoming", "Live"],
+      };
+    }
   }
 
   if (search_query) {
@@ -478,6 +680,7 @@ exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
         model: userModel,
         as: "creator",
         attributes: ["id", "username", "avatar"],
+        paranoid: false, // Include soft-deleted users
       },
     ],
   });
@@ -521,15 +724,15 @@ exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
   res.status(StatusCodes.OK).json({ following_events: formattedEvents });
 });
 
-// exports.getGenres = catchAsyncError(async (req, res) => {
-//   const genres = await genreModel.findAll({
-//     attributes: ["id", "name", "thumbnail"], // Select only id and name fields
-//   });
-//   res.status(200).json({ success: true, genres });
-// });
+exports.getGenres = catchAsyncError(async (req, res) => {
+  const genres = await genreModel.findAll({
+    attributes: ["id", "name", "thumbnail"], // Select only id and name fields
+  });
+  res.status(200).json({ success: true, genres });
+});
 
 // Add new genre route which contains pagination with query
-exports.getGenres = catchAsyncError(async (req, res, next) => {
+exports.getAllGenres = catchAsyncError(async (req, res, next) => {
   const { currentPage, resultPerPage, key } = req.query;
   const offset = (currentPage - 1) * resultPerPage;
   let whereClause = {};
@@ -608,6 +811,25 @@ exports.getMyUpcomingEvents = catchAsyncError(async (req, res, next) => {
   res.status(200).json({ success: true, myUpcomingEvents });
 });
 
+exports.getMyLiveEvent = catchAsyncError(async (req, res, next) => {
+  const { userId } = req; // Assuming user ID is stored in req.user
+
+  const myLiveEvent = await eventModel.findAll({
+    where: {
+      userId: userId,
+      status: "Live",
+    },
+    attributes: ["id", "title", "event_date", "event_time", "thumbnail"],
+    order: [["event_date", "ASC"]], // Order by event date ascending
+  });
+
+  if (!myLiveEvent) {
+    return next(new ErrorHandler("Event not found", StatusCodes.NOT_FOUND));
+  }
+
+  res.status(200).json({ success: true, myLiveEvent });
+});
+
 exports.globalSearch = catchAsyncError(async (req, res, next) => {
   const { search_query, page_number, page_size } = req.query;
   const { userId } = req;
@@ -625,6 +847,7 @@ exports.globalSearch = catchAsyncError(async (req, res, next) => {
   // Search users based on the search query
   const users = await userModel.findAll({
     where: {
+      id: { [Op.ne]: userId }, // Exclude current user
       [Op.or]: [{ username: { [Op.iLike]: `%${search_query}%` } }],
     },
     ...query,
@@ -832,19 +1055,19 @@ exports.getStreamedDetails = catchAsyncError(async (req, res, next) => {
   if (!event) {
     return res
       .status(StatusCodes.NOT_FOUND)
-      .json({ message: "Event not found" });
+      .json({ success: false, message: "Event not found" });
   }
 
-  event.setDataValue("totalGuest", "500");
-  event.setDataValue("comments", "1588");
-  event.setDataValue("likes", "12454");
-  event.setDataValue("dislikes", "314");
-  event.setDataValue("dislikes", "314");
-  event.setDataValue("totalAmount", 875242);
-  event.setDataValue("commission", 245634);
-  event.setDataValue("payStatus", "Success");
-  event.setDataValue("payout", 631479);
-  res.status(StatusCodes.OK).json({ eventDetails: event });
+  // event.setDataValue("totalGuest", "500");
+  // event.setDataValue("comments", "1588");
+  // event.setDataValue("likes", "12454");
+  // event.setDataValue("dislikes", "314");
+  // event.setDataValue("dislikes", "314");
+  // event.setDataValue("totalAmount", 875242);
+  // event.setDataValue("commission", 245634);
+  // event.setDataValue("payStatus", "Success");
+  // event.setDataValue("payout", 631479);
+  res.status(StatusCodes.OK).json({ success: true, event });
 });
 
 exports.getAllEvents = catchAsyncError(async (req, res, next) => {
@@ -908,8 +1131,6 @@ exports.getSingleEvent = catchAsyncError(async (req, res, next) => {
     // }
   );
 
-  console.log(event);
-
   if (!event) {
     return res
       .status(StatusCodes.NOT_FOUND)
@@ -941,6 +1162,192 @@ exports.getEventsWithStatus = catchAsyncError(async (req, res, next) => {
   }
 
   res.status(200).json({ success: true, events });
+});
+
+// Go live event
+exports.goLiveEvent = catchAsyncError(async (req, res, next) => {
+  const { eventId } = req.params;
+  const { userId } = req;
+
+  const event = await eventModel.findByPk(eventId);
+  console.log("runn");
+
+  if (!event) {
+    return res
+      .status(StatusCodes.NOT_FOUND)
+      .json({ message: "Event not found" });
+  }
+
+  if (event.userId !== userId) {
+    return next(
+      new ErrorHandler(
+        "You are not authorized to access this event",
+        StatusCodes.UNAUTHORIZED
+      )
+    );
+  }
+
+  const givenDate = event.event_date.toISOString();
+  const givenTime = event.event_time;
+
+  const combinedDateTimeString = `${givenDate.split("T")[0]}T${givenTime}`;
+  const combinedDateTime = new Date(combinedDateTimeString);
+
+  const fiveMinutesInMillis = 5 * 60 * 1000;
+  const modifiedDateTime = new Date(
+    combinedDateTime.getTime() - fiveMinutesInMillis
+  );
+
+  const currentTime = new Date();
+  const addedTime = new Date(currentTime);
+  addedTime.setHours(addedTime.getHours() + 5);
+  addedTime.setMinutes(addedTime.getMinutes() + 30);
+  console.log(addedTime);
+
+  let canGoLive = false;
+
+  if (modifiedDateTime <= addedTime) {
+    canGoLive = true;
+  }
+
+  const users = await Transaction.findAll({
+    where: { eventId: eventId },
+  });
+
+  const userIds = users.map((user) => user.userId);
+
+  const paiduser = await userModel.findAll({
+    attributes: ["id", "fcm_token"],
+    where: {
+      id: {
+        [Op.in]: userIds,
+      },
+    },
+  });
+
+  const fcmTokens = paiduser.map((user) => user.fcm_token);
+
+  const notificationMessage = {
+    notification: {
+      title: "Live Event Started",
+      body: "The live event you were waiting for has started! Join the stream now.",
+    },
+  };
+
+  const sendPromises = [];
+
+  // Iterate over the array of dummy tokens
+  fcmTokens.forEach((token) => {
+    const message = { ...notificationMessage, token };
+    const sendPromise = messaging.send(message);
+    sendPromises.push(sendPromise);
+  });
+
+  try {
+    // Wait for all promises to resolve (i.e., all notifications are sent)
+    const responses = await Promise.all(sendPromises);
+    console.log("Push notifications sent successfully:", responses);
+    // res.status(200).send(responses);
+  } catch (error) {
+    console.error("Error sending push notifications:", error);
+    // res.status(500).send({ error: "Failed to send push notifications" });
+  }
+
+  console.log("paiiidddddd", fcmTokens);
+
+  res.status(StatusCodes.OK).json({ success: true, goLive: canGoLive });
+});
+
+// add cancel event route
+exports.cancelEvent = catchAsyncError(async (req, res, next) => {
+  const { eventId } = req.params;
+  const { userId } = req;
+
+  const event = await eventModel.findByPk(eventId);
+
+  if (!event) {
+    return res
+      .status(StatusCodes.NOT_FOUND)
+      .json({ message: "Event not found" });
+  }
+
+  // Check if the event start time is more than 24 hours in the future
+  const eventStartTime = new Date(event.event_date).getTime();
+  const currentTime = new Date().getTime();
+  const twentyFourHoursInMilliseconds = 24 * 60 * 60 * 1000;
+
+  if (eventStartTime - currentTime <= twentyFourHoursInMilliseconds) {
+    return next(
+      new ErrorHandler(
+        "Event cannot be canceled within 24 hours of start time",
+        StatusCodes.BAD_GATEWAY
+      )
+    );
+  }
+
+  const user = await userModel.findByPk(userId);
+
+  if (!user) {
+    return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
+  }
+
+  const transaction = await Transaction.findOne({
+    where: { eventId: eventId, userId: userId },
+  });
+
+  if (!transaction) {
+    res
+      .status(StatusCodes.OK)
+      .json({ success: true, message: "You have not pay for this event" });
+  }
+
+  const refund = await refundAmountOnCancelEvent(user.customerId, eventId);
+
+  if (refund.status === "succeeded") {
+    const refunded = await Transaction.update(
+      {
+        charge: "refunded",
+      },
+      { where: { id: transaction.id } }
+    );
+
+    if (refunded) {
+      const message = `Your refund has been processed for the Cancelled Event: ${event.title}.`;
+      await createNotification(
+        user.id,
+        message,
+        "Payment Refund",
+        event.thumbnail
+      );
+
+      let token = user.fcm_token;
+      console.log("Target user FCM token:", token);
+
+      const fcmMessage = {
+        notification: {
+          title: "Payment Refund",
+          body: message,
+        },
+        token,
+        data: {
+          type: "Payment Refund",
+        },
+      };
+
+      try {
+        await messaging.send(fcmMessage);
+        console.log("Push notification sent successfully.");
+      } catch (error) {
+        // Handle error if FCM token is expired or invalid
+        console.error("Error sending push notification:", error);
+        // Log the error and proceed with the follow operation
+      }
+    }
+  }
+
+  res
+    .status(StatusCodes.OK)
+    .json({ success: true, message: "Event cancelled successfully" });
 });
 
 // create admin event update route
@@ -996,4 +1403,25 @@ exports.adminUpdateEvent = catchAsyncError(async (req, res, next) => {
   res
     .status(StatusCodes.OK)
     .json({ success: true, message: "Event updated successfully", event });
+});
+
+// admin delete events
+exports.adminDeleteEvent = catchAsyncError(async (req, res, next) => {
+  const { eventId } = req.params;
+
+  const event = await eventModel.findByPk(eventId);
+
+  // Check if event exists
+  if (!event) {
+    return res
+      .status(StatusCodes.NOT_FOUND)
+      .json({ success: false, message: "Event not found" });
+  }
+
+  // Delete the event
+  await event.destroy();
+
+  res
+    .status(StatusCodes.OK)
+    .json({ success: true, message: "Event deleted Successfully" });
 });

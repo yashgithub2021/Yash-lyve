@@ -5,9 +5,9 @@ const { s3Uploadv2 } = require("../../utils/s3");
 const { userModel } = require("../user");
 const { Op } = require("sequelize");
 const { eventModel, genreModel } = require("../events/event.model");
+const Transaction = require("../transactions/transaction.model");
 
 exports.createUser = catchAsyncError(async (req, res, next) => {
-  console.log("Admin create user");
   const image = req.file;
   let imageUrl;
   image && (imageUrl = (await s3Uploadv2(image)).Location);
@@ -36,13 +36,6 @@ exports.deleteUser = catchAsyncError(async (req, res, next) => {
     .json({ success: true, message: "User deleted successfully" });
 });
 
-// exports.getAllUsers = catchAsyncError(async (req, res, next) => {
-//   console.log("Admin Get ALl users");
-
-//   const users = await userModel.findAll();
-//   res.status(StatusCodes.OK).json({ success: true, users });
-// });
-
 //Create new route which contain pagination and search query
 exports.getAllUsers = catchAsyncError(async (req, res, next) => {
   const { currentPage, resultPerPage, key } = req.query;
@@ -59,6 +52,8 @@ exports.getAllUsers = catchAsyncError(async (req, res, next) => {
     // If requester is Admin, exclude users with role "Admin" from the query
     whereClause.role = { [Op.ne]: "Admin" };
   }
+
+  whereClause.isVerified = true;
 
   const { count, rows: users } = await userModel.findAndCountAll({
     where: whereClause,
@@ -97,8 +92,6 @@ exports.updateUser = catchAsyncError(async (req, res, next) => {
 
   const thumbnailFile = req.file;
 
-  console.log(thumbnailFile);
-
   if (thumbnailFile) {
     const imageUrl = await s3Uploadv2(thumbnailFile);
     updateData.avatar = imageUrl.Location;
@@ -114,38 +107,10 @@ exports.updateUser = catchAsyncError(async (req, res, next) => {
   // Update the event
   await user.update(updateData);
 
-  console.log("first", updateData);
-
   res
     .status(StatusCodes.OK)
     .json({ success: true, message: "Event updated successfully", user });
 });
-
-// exports.updateUser = catchAsyncError(async (req, res, next) => {
-//   const userId = req.params.id;
-//   const updateData = userModel.getUpdateFields(req.body);
-
-//   if (Object.keys(updateData).length === 0) {
-//     return next(
-//       new ErrorHandler(
-//         "Please provdide data to update",
-//         StatusCodes.BAD_REQUEST
-//       )
-//     );
-//   }
-//   console.log(updateData);
-//   const [isUpdated] = await userModel.update(updateData, {
-//     where: { id: userId },
-//   });
-
-//   if (isUpdated === 0) {
-//     return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
-//   }
-
-//   res
-//     .status(StatusCodes.OK)
-//     .json({ success: true, message: "User Updated Successfully", isUpdated });
-// });
 
 exports.register = catchAsyncError(async (req, res, next) => {
   const admin = await userModel.create({
@@ -158,37 +123,6 @@ exports.register = catchAsyncError(async (req, res, next) => {
 
   res.status(StatusCodes.CREATED).json({ admin, token });
 });
-
-// exports.updateAdminProfile = catchAsyncError(async (req, res, next) => {
-//   const { userId } = req;
-//   console.log("Req Body", req.body);
-//   const imageFile = req.file;
-
-//   if (imageFile) {
-//     const imageUrl = await s3Uploadv2(imageFile);
-//     req.body.avatar = imageUrl.Location;
-//   }
-
-//   const updateData = userModel.getUpdateFields(req.body);
-
-//   if (Object.keys(updateData).length === 0) {
-//     return next(
-//       new ErrorHandler("Please provide data to update", StatusCodes.BAD_REQUEST)
-//     );
-//   }
-
-//   const updatedUser = await userModel.update(updateData, {
-//     where: { id: userId },
-//     returning: true, // This option makes the updated record to be returned
-//   });
-
-//   // If the user is created successfully, you can redirect the user or send a success response
-//   res.status(StatusCodes.CREATED).json({
-//     success: true,
-//     message: "User info added successfully",
-//     user: updatedUser[1][0],
-//   });
-// });
 
 // Create Admin update profile route
 exports.updateAdminProfile = catchAsyncError(async (req, res, next) => {
@@ -204,8 +138,6 @@ exports.updateAdminProfile = catchAsyncError(async (req, res, next) => {
   let updateData = {};
 
   const thumbnailFile = req.file;
-
-  console.log(thumbnailFile);
 
   if (thumbnailFile) {
     const imageUrl = await s3Uploadv2(thumbnailFile);
@@ -224,19 +156,39 @@ exports.updateAdminProfile = catchAsyncError(async (req, res, next) => {
   // Update the event
   await user.update(updateData);
 
-  console.log("first", updateData);
-
   res
     .status(StatusCodes.OK)
     .json({ success: true, message: "Event updated successfully", user });
 });
 
-// Create Admin dashboard
+// Admin account delete
+exports.deleteAdmin = catchAsyncError(async (req, res, next) => {
+  const { email } = req.body;
+
+  const adminAccount = await userModel.destroy({ where: { email } });
+
+  if (!adminAccount) {
+    return next(new ErrorHandler("Invalid credentials", StatusCodes.NOT_FOUND));
+  }
+
+  res
+    .status(StatusCodes.OK)
+    .json({ success: true, message: "Account deleted successfully" });
+});
+
+// Admin dashboard
 exports.getDashboardData = catchAsyncError(async (req, res, next) => {
-  const [userCount, events, genreCount] = await Promise.all([
-    userModel.count(),
+  const [userCount, events, genreCount, transactionCount] = await Promise.all([
+    userModel.count({
+      where: {
+        role: {
+          [Op.not]: "Admin",
+        },
+      },
+    }),
     eventModel.findAll({ raw: true }),
     genreModel.count(),
+    Transaction.count(),
   ]);
 
   // Initialize counters for different event statuses
@@ -265,25 +217,10 @@ exports.getDashboardData = catchAsyncError(async (req, res, next) => {
       { key: "Users", value: userCount },
       { key: "Events", value: eventCount },
       { key: "Genres", value: genreCount },
+      { key: "Transactions", value: transactionCount },
       { key: "Live events", value: liveEvents },
       { key: "Upcoming events", value: upcomingEvents },
       { key: "Completed events", value: completedEvents },
     ],
   });
-});
-
-// Create Admin account delete
-exports.deleteAdmin = catchAsyncError(async (req, res, next) => {
-  const { email } = req.body;
-
-  const adminAccount = await userModel.destroy({ where: { email } });
-  console.log(adminAccount);
-
-  if (!adminAccount) {
-    return next(new ErrorHandler("Invalid credentials", StatusCodes.NOT_FOUND));
-  }
-
-  res
-    .status(StatusCodes.OK)
-    .json({ success: true, message: "Account deleted successfully" });
 });

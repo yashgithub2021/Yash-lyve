@@ -1,11 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const { auth, authRole } = require("../../middlewares/auth");
+const { auth } = require("../../middlewares/auth");
 const { upload } = require("../../utils/s3");
 const {
   createEvent,
   deleteEvent,
-  createGenre,
   getUpcomingEvents,
   getRecommendedEvents,
   getEvents,
@@ -18,6 +17,8 @@ const {
   getStreamedDetails,
   updateEvent,
   getSingleEvent,
+  goLiveEvent,
+  getMyLiveEvent,
 } = require("./event.controller");
 
 router.post("/create", upload.single("thumbnail"), auth, createEvent);
@@ -28,7 +29,7 @@ router.put("/update/:eventId", upload.single("thumbnail"), auth, updateEvent);
 
 router.get("/get-events", auth, getEvents);
 
-router.get("/:eventId/get-event", auth, getSingleEvent);
+router.get("/get-event/:eventId", auth, getSingleEvent);
 
 router.get("/get-genre", auth, getGenres);
 
@@ -40,6 +41,8 @@ router.get("/global-search", auth, globalSearch);
 
 router.get("/my-upcoming-events", auth, getMyUpcomingEvents);
 
+router.get("/my-live-event", auth, getMyLiveEvent);
+
 router.get("/user-events/:userId", auth, getUserEvents);
 
 router.get("/stream-details/:eventId", auth, getStreamedDetails);
@@ -47,5 +50,7 @@ router.get("/stream-details/:eventId", auth, getStreamedDetails);
 router.route("/recommended-events").get(auth, getRecommendedEvents);
 
 router.get("/get-upcoming-events", auth, getUpcomingEvents);
+
+router.get("/go-live-event/:eventId", auth, goLiveEvent);
 
 module.exports = router;

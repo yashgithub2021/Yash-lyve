@@ -1,92 +1,88 @@
 const secret_key = process.env.STRIPE_SECRET_KEY;
 const stripe = require("stripe")(secret_key);
+const { eventModel } = require("../src/events/event.model");
+const { userModel } = require("../src/user/index");
 const Transaction = require("../src/transactions/transaction.model");
 const express = require("express");
-const appHook = express();
+const { firebase } = require("./firebase");
+const messaging = firebase.messaging();
 
-appHook.use(express.raw({ type: "*/*" }));
+const router = express.Router();
 
-const createCheckout = async (event, user) => {
-  console.log("Datavalues", event.dataValues);
+// create customer on stripe
+const createStripeCustomers = async (email, username) => {
+  const stripeAddress = {
+    line1: "asdsadsad",
+    line2: "dasadsads",
+    city: "userAddress.city",
+    country: "US",
+    postal_code: "123456",
+    state: "userAddress.state",
+  };
+
+  return new Promise(async (resolve, reject) => {
+    try {
+      const stripeCustomer = await stripe.customers.create({
+        email: email,
+        name: username,
+        description: "userData.description",
+        phone: "1234567890",
+        address: stripeAddress,
+      });
+      resolve(stripeCustomer.id);
+    } catch (error) {
+      reject(error.message);
+    }
+  });
+};
+
+// Add payment Intent
+const createPaymentIntent = async (event, user) => {
+  // console.log("Datavalues", event.dataValues);
   const amount = event.entry_fee;
   const title = event.title;
-  const email = user.email;
+  const accountId = event.creator.bank_account_id;
 
   try {
-    // const customer = await stripe.customers.create({
-    //   metadata: {
-    //     userId: user.id,
-    //     user: user.username,
-    //     eventId: event.id,
-    //     event_name: event.title,
-    //     event_thubmnail: event.thumbnail,
-    //   },
-    // });
+    const ephemeralKey = await stripe.ephemeralKeys.create(
+      { customer: user.customerId },
+      { apiVersion: "2024-04-10" }
+    );
 
-    const session = await stripe.checkout.sessions.create({
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amount * 100, // Amount in cents
+      currency: "usd",
+      description: "Software development services",
+      customer: user.customerId,
+      metadata: {
+        eventName: title,
+        eventDate: event.event_date,
+        eventTime: event.event_time,
+        eventId: event.id,
+        userId: user.id,
+        thumbnail: event.thumbnail,
+        amount: event.entry_fee,
+        customerName: user.username,
+        customerId: user.customerId,
+        accountId: accountId,
+      },
       payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: title,
-            },
-            unit_amount: amount * 100,
-          },
-          quantity: 1,
-        },
-      ],
-      mode: "payment",
-      success_url: `http://localhost:5000`,
-      cancel_url: `http://localhost:5000`,
-      customer_email: email,
-      // customer: customer.id,
-      // metadata: customer,
     });
-    return { session };
-  } catch (e) {
-    console.log(e);
+    return {
+      client_secret: paymentIntent.client_secret,
+      ephemeral_keys: ephemeralKey.secret,
+      customer: user.customerId,
+      pusblishable_secret:
+        "pk_test_51P9MZeLb055EzjLnwkZnATncBINTCbGXltCKhAyWhgnLmcaY4PehxuQaKhk5DQned7SPmCzdgRZfj4MTux0INRSg00vOH5uxP4",
+    };
+  } catch (error) {
+    console.log(error);
+    throw Error("Unable to create client secret", error.message);
   }
 };
 
-// Capture payments
-const captureStripePayment = async (session_id) => {
-  try {
-    const session = await stripe.checkout.sessions.retrieve(session_id);
-
-    if (!session) {
-      throw new Error("Session not found");
-    }
-
-    return session;
-  } catch (e) {
-    console.log(e.message);
-  }
-};
-
-// Create transaction not working yet
-const createTransaction = async (customer, data) => {
-  // const Items = JSON.parse(customer.metadata.cart);
-  try {
-    const transaction = await Transaction.create({
-      userId: customer.metadata.userId,
-      event_id: data.metadata.eventId,
-      customer_id: data.customer,
-      transaction_id: data.object.id,
-      payment_gateway: data.payment_method_types[0],
-      payment_amount: data.amount_total,
-      payment_status: data.payment_status,
-      metadata: customer.metadata,
-    });
-    console.log("Processed Order:", transaction);
-  } catch (err) {
-    console.log(err);
-  }
-};
-
-//Webhook route not working yet
-appHook.post(
+//Webhook route
+router.post(
   "/webhook",
   express.raw({ type: "application/json" }),
   async (req, res) => {
@@ -95,8 +91,7 @@ appHook.post(
 
     // Check if webhook signing is configured.
     let webhookSecret;
-    webhookSecret =
-      "whsec_baa566e628b46819c0be536920fa0d74dc4706710e62e1143febf9506fbf6602";
+    webhookSecret = process.env.WEBHOOK_SECRET;
 
     if (webhookSecret) {
       // Retrieve the event by verifying the signature using the raw body and secret.
@@ -113,7 +108,6 @@ appHook.post(
 
         console.log("webhook verified", event);
       } catch (err) {
-        console.error("Webhook Error:", err);
         return res.status(400).json({ error: `Webhook Error: ${err.message}` });
       }
       // Extract the object from the event.
@@ -126,15 +120,69 @@ appHook.post(
       eventType = req.body.type;
     }
 
-    // Handle the checkout.session.completed event
-    if (eventType === "checkout.session.completed") {
+    // Handle the payment_intent.succeeded event
+    if (eventType === "payment_intent.succeeded") {
       stripe.customers
         .retrieve(data.customer)
         .then(async (customer) => {
           try {
             // CREATE ORDER
-            createTransaction(customer, data);
-            console.log("data", data);
+            createTransaction(customer, data, "");
+            console.log("da", data);
+            console.log("userrrrrrridddd", data.metadata.userId);
+            userId = data.metadata.userId;
+            user = await userModel.findByPk(userId);
+            let token = user.fcm_token;
+            const fcmMessage = {
+              notification: {
+                title: "Payment Confirmation",
+                body: `Your payment for the live event has been successfully processed. Enjoy the stream!`,
+              },
+              token,
+              data: {
+                type: "Payment Confirmation",
+              },
+            };
+
+            try {
+              await messaging.send(fcmMessage);
+              console.log("Push notification sent successfully.");
+            } catch (error) {
+              // Handle error if FCM token is expired or invalid
+              console.error("Error sending push notification:", error);
+              // Log the error and proceed with the follow operation
+            }
+          } catch (err) {
+            console.log(err);
+          }
+        })
+        .catch((err) => console.log(err.message));
+    }
+
+    // Handle the payment_intent.canceled event
+    if (eventType === "payment_intent.canceled") {
+      stripe.customers
+        .retrieve(data.customer)
+        .then(async (customer) => {
+          try {
+            // CREATE ORDER
+            createTransaction(customer, data, "");
+            // console.log("data", data);
+          } catch (err) {
+            console.log(err);
+          }
+        })
+        .catch((err) => console.log(err.message));
+    }
+
+    // Handle the payment_intent.processing event
+    if (eventType === "payment_intent.processing") {
+      stripe.customers
+        .retrieve(data.customer)
+        .then(async (customer) => {
+          try {
+            createTransaction(customer, data, "");
+            // console.log("data", data);
           } catch (err) {
             console.log(err);
           }
@@ -145,75 +193,245 @@ appHook.post(
   }
 );
 
-// not working yet
-const createStripeCustomer = async (email, username) => {
+// ====================== Bank details methods ========================
+
+// Add bank details on stripe
+const addBankDetails = async (country, email, customerId) => {
   try {
-    const stripeCustomer = await stripe.customers.create({
-      email: email,
-      name: username, // Update with the user's name if available
-      description: "Customer for your app", // Add description if needed
-      // Add more fields as needed
+    const connect = await stripe.accounts.create({
+      country: country,
+      metadata: {
+        customerId: customerId,
+      },
+      individual: {
+        email: email,
+      },
+      type: "express",
+      capabilities: {
+        card_payments: {
+          requested: true,
+        },
+        transfers: {
+          requested: true,
+        },
+      },
+      business_type: "individual",
+      business_profile: {
+        url: "https://lyvechat.com",
+      },
     });
-    return stripeCustomer.id;
+
+    await stripe.accounts.listExternalAccounts(connect.id);
+
+    const account = await stripe.accountLinks.create({
+      account: connect.id,
+      refresh_url: "https://example.com/reauth",
+      return_url: "https://example.com/return",
+      type: "account_onboarding",
+    });
+
+    return {
+      accountId: connect.id,
+      accountLink: account,
+    };
   } catch (error) {
-    console.error("Error creating Stripe customer:", error);
-    throw new Error("Error creating Stripe customer");
+    console.error("Error creating account:", error);
+    throw new Error(error.message);
   }
 };
 
-//not working yet
-const createStripeToken = async (
-  // country,
-  // currency,
-  // account_holder_name,
-  // account_holder_type,
-  // routing_number,
-  // account_number
-  number,
-  exp_month,
-  exp_year,
-  cvc
+// Get bank details
+const getBankDetails = async () => {
+  try {
+    const retrieveBank = await stripe.accounts.list();
+
+    if (!retrieveBank) {
+      throw new Error("Bank account does not exist");
+    }
+
+    return retrieveBank;
+  } catch (error) {
+    console.log(error);
+    throw new Error(error.message);
+  }
+};
+
+// Delete bank details on stripe
+const deleteBankDetails = async (bankAccountId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const deleted = await stripe.accounts.del(bankAccountId);
+      resolve(deleted);
+    } catch (error) {
+      reject(error.message);
+    }
+  });
+};
+
+// Generate login link stripe
+const generateLoginLink = async (bankAccountId) => {
+  try {
+    const login = await stripe.accounts.createLoginLink(bankAccountId);
+
+    return login;
+  } catch (error) {
+    console.log(error);
+    throw new Error(error.message);
+  }
+};
+
+// pay 60% commission to the creator
+const payCommission = async (
+  totalAmount,
+  accountId,
+  eventId,
+  title,
+  event_thumbnail,
+  event_date,
+  event_time,
+  event_status,
+  userId,
+  username,
+  avatar
 ) => {
+  return new Promise(async (resolve, reject) => {
+    // console.log("idd", accountId, typeof accountId);
+    try {
+      const transfer = await stripe.transfers.create({
+        amount: totalAmount,
+        currency: "usd",
+        destination: accountId,
+        description: "Transfer to event creator",
+        metadata: {
+          eventId: eventId,
+          eventName: title,
+          thumbnail: event_thumbnail,
+          eventDate: event_date,
+          eventTime: event_time,
+          eventStatus: event_status,
+          userId: userId,
+          userName: username,
+          avatar: avatar,
+          amount: totalAmount,
+        },
+      });
+      resolve(transfer);
+    } catch (error) {
+      console.error("Error creating transfer:", error);
+      reject(error.message);
+    }
+  });
+};
+
+// Function to retrieve Payment Intents associated with a customer
+const getPaymentIntentsByCustomer = async (customerId, eventId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const paymentIntents = await stripe.paymentIntents.list({
+        customer: customerId,
+      });
+
+      let amount;
+      // let intentId;
+      let paymentIntentId;
+
+      paymentIntents.data.forEach(async (paymentIntent) => {
+        if (
+          paymentIntent &&
+          paymentIntent.metadata.eventId === eventId &&
+          paymentIntent.status === "succeeded"
+        ) {
+          paymentIntentId = paymentIntent.id;
+          amount = paymentIntent.amount;
+        }
+      });
+
+      // const charges = await stripe.charges.list({
+      //   payment_intent: intentId,
+      // });
+
+      // charges.data.forEach((charge) => {
+      //   if (!charge.refunded && charge.metadata.eventId === eventId) {
+      //     paymentIntentId = charge.payment_intent;
+      //     amount = charge.amount;
+      //     console.log(charge.payment_intent, charge.amount);
+      //   }
+      // });
+
+      resolve({
+        amount,
+        paymentIntentId,
+      });
+    } catch (error) {
+      reject(error.message);
+    }
+  });
+};
+
+// pay refund to the users
+const payRefund = async (refundAmount, paymentIntentId, next) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const refund = await stripe.refunds.create({
+        payment_intent: paymentIntentId,
+        amount: refundAmount, // The amount to refund in cents (or smallest currency unit)
+      });
+      resolve(refund);
+    } catch (error) {
+      reject(error.message);
+    }
+  });
+};
+
+// Create transaction model
+const createTransaction = async (customer, data, paid) => {
   try {
-    const token = await stripe.tokens.create({
-      number: "4242424242424242",
-      exp_month: 12,
-      exp_year: 2025,
-      cvc: "123",
+    await Transaction.create({
+      userId: data.metadata.userId,
+      eventId: data.metadata.eventId,
+      customer_id: data.customer,
+      transaction_id: data.id,
+      payment_gateway: data.payment_method_types[0],
+      payment_amount: data.amount,
+      payment_status:
+        data.status === "requires_payment_method" ? "failed" : data.status,
+      charge: paid,
+      bank_account_id: data.metadata.accountId,
     });
-
-    // country: country,
-    // currency: currency,
-    // account_holder_name: account_holder_name,
-    // account_holder_type: account_holder_type,
-    // routing_number: routing_number,
-    // account_number: account_number,
-
-    return token;
+    updateEventSpots(data.metadata.eventId);
   } catch (error) {
-    console.error("Error creating Stripe customer:", error);
-    throw new Error("Error creating Stripe customer");
+    throw new Error(error.message);
   }
 };
 
-//not working yet
-const addBankDetails = async (cust_Id, token) => {
+// Number of spots left for the event
+const updateEventSpots = async (eventId) => {
   try {
-    const customerSource = await stripe.customers.createSource(cust_Id, {
-      source: token,
-    });
-    return customerSource;
+    const event = await eventModel.findByPk(eventId);
+
+    if (!event) {
+      throw new Error("Event not found");
+    }
+
+    let updatedSpots = {};
+
+    updatedSpots.spots = event.spots - 1;
+
+    await event.update(updatedSpots);
   } catch (error) {
-    console.error("Error creating Stripe customer:", error);
-    throw new Error("Error creating Stripe customer");
+    throw new Error(error.message);
   }
 };
 
 module.exports = {
-  createStripeCustomer,
-  createStripeToken,
+  createStripeCustomers,
   addBankDetails,
-  createCheckout,
-  captureStripePayment,
-  appHook,
+  getBankDetails,
+  deleteBankDetails,
+  generateLoginLink,
+  createPaymentIntent,
+  getPaymentIntentsByCustomer,
+  payCommission,
+  payRefund,
+  router,
 };

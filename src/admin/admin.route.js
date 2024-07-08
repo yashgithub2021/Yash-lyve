@@ -13,13 +13,14 @@ const {
 } = require("./admin.controller");
 const {
   createGenre,
+  getAllGenres,
   updateGenre,
   deleteGenre,
-  getEvents,
   getAllEvents,
   getEventsWithStatus,
   getSingleEvent,
   adminUpdateEvent,
+  adminDeleteEvent,
 } = require("../events/event.controller");
 
 const {
@@ -28,6 +29,12 @@ const {
   deleteContent,
 } = require("../content/content.controller");
 const { upload } = require("../../utils/s3");
+const {
+  getAllTransaction,
+  updateTransaction,
+  deleteTransaction,
+  getAdminSingleTransaction,
+} = require("../transactions/transaction.controller");
 
 const adminRouter = express.Router();
 const authAdmin = authRole(["Admin"]);
@@ -67,7 +74,8 @@ adminRouter.post("/delete", deleteAdmin);
 // Admin Genre routes
 adminRouter
   .route("/genre")
-  .post(upload.single("thumbnail"), auth, authAdmin, createGenre);
+  .post(upload.single("thumbnail"), auth, authAdmin, createGenre)
+  .get(auth, authAdmin, getAllGenres);
 adminRouter
   .route("/genre/:id")
   .put(upload.single("thumbnail"), auth, authAdmin, updateGenre);
@@ -79,8 +87,21 @@ adminRouter.route("/get_event").get(auth, authAdmin, getSingleEvent);
 adminRouter
   .route("/update/:eventId")
   .put(upload.single("thumbnail"), auth, authAdmin, adminUpdateEvent);
+adminRouter.delete("/delete/:eventId", auth, authAdmin, adminDeleteEvent);
 adminRouter
   .route("/get-event-status")
   .get(auth, authAdmin, getEventsWithStatus);
+
+// Admin Transaction routes
+adminRouter.route("/all_transactions").get(auth, authAdmin, getAllTransaction);
+adminRouter
+  .route("/get-transaction/:transactionId")
+  .get(auth, authAdmin, getAdminSingleTransaction);
+adminRouter
+  .route("/update-transaction/:transactionId")
+  .put(auth, authAdmin, updateTransaction);
+adminRouter
+  .route("/delete-transaction/:transactionId")
+  .delete(auth, authAdmin, deleteTransaction);
 
 module.exports = adminRouter;

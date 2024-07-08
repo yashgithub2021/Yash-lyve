@@ -106,7 +106,7 @@ const eventModel = db.define(
       validate: {
         isIn: {
           args: [["Upcoming", "Live", "Completed"]],
-          msg: "Status must be one of: Upcoming, Live, or Completed",
+          msg: "Status must be one of: Upcoming, Live or Completed",
         },
       },
     },
@@ -125,8 +125,27 @@ const eventModel = db.define(
       type: DataTypes.STRING,
       defaultValue: "none",
     },
+    totalGuest: {
+      type: DataTypes.STRING,
+      defaultValue: "none",
+    },
+    totalLikes: {
+      type: DataTypes.STRING,
+      defaultValue: "none",
+    },
+    totalDislikes: {
+      type: DataTypes.STRING,
+      defaultValue: "none",
+    },
+    totalComments: {
+      type: DataTypes.STRING,
+      defaultValue: "none",
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    paranoid: true, // Enables soft delete functionality
+  }
 );
 
 const genreModel = db.define("Genre", {

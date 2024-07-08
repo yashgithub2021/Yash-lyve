@@ -5,9 +5,12 @@ const dotenv = require("dotenv");
 const app = express();
 
 const path = "./config/config.env";
-// const path = "./config/local.env";
+// const path = "./config/live.env";
 dotenv.config({ path });
 
+const { router } = require("./utils/stripe");
+
+app.use(router);
 app.use(express.json());
 app.use(
   cors({
@@ -31,6 +34,8 @@ const {
   transactionRoute,
   bankRoute,
 } = require("./src");
+const { croneJob } = require("./src/bank/bank.controller");
+const { cronJobs } = require("./utils/cronjobs");
 
 app.use("/api/users", userRoute);
 app.use("/api/events", eventRouter);
@@ -42,9 +47,6 @@ app.use("/api/bank", bankRoute);
 app.use("/api/subscription", subscriptionRoute);
 app.use("/api/transaction", transactionRoute);
 
-const { appHook } = require("./utils/stripe");
-app.use(appHook);
-
 app.all("*", async (req, res) => {
   res.status(404).json({
     error: {
@@ -52,6 +54,9 @@ app.all("*", async (req, res) => {
     },
   });
 });
+
+croneJob();
+cronJobs();
 
 app.use(errorMiddleware);
 

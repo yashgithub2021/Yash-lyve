@@ -3,17 +3,13 @@ const router = express.Router();
 const { auth } = require("../../middlewares/auth");
 
 const {
-  createTransaction,
-  getAllTransaction,
   getSingleTransaction,
-  updateTransaction,
-  deleteTransaction,
+  payoutSettlements,
+  payoutTransactions,
 } = require("./transaction.controller");
 
-router.post("/create", auth, createTransaction);
-router.get("/all_transactions", auth, getAllTransaction);
-router.get("/single_transaction", auth, getSingleTransaction);
-router.put("/update_transaction", auth, updateTransaction);
-router.delete("/delete_transaction", auth, deleteTransaction);
+router.get("/payout-settlements", auth, payoutSettlements);
+router.get("/payout-transactions", auth, payoutTransactions);
+router.get("/:eventId", auth, getSingleTransaction);
 
 module.exports = router;
