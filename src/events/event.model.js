@@ -127,19 +127,31 @@ const eventModel = db.define(
     },
     totalGuest: {
       type: DataTypes.STRING,
-      defaultValue: "none",
+      defaultValue: "0",
     },
     totalLikes: {
       type: DataTypes.STRING,
-      defaultValue: "none",
+      defaultValue: "0",
     },
     totalDislikes: {
       type: DataTypes.STRING,
-      defaultValue: "none",
+      defaultValue: "0",
     },
     totalComments: {
       type: DataTypes.STRING,
-      defaultValue: "none",
+      defaultValue: "0",
+    },
+    totalAmount: {
+      type: DataTypes.STRING,
+      defaultValue: "0",
+    },
+    commission: {
+      type: DataTypes.STRING,
+      defaultValue: "0",
+    },
+    payStatus: {
+      type: DataTypes.STRING,
+      defaultValue: "Processing",
     },
   },
   {

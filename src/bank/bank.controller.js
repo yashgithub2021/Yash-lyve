@@ -210,6 +210,7 @@ exports.croneJob = () => {
           }
         }
       }
+
       // calculate 60% of the total amount and transfer to the bank
       for (let obj in arr) {
         const event = await eventModel.findByPk(obj, {
@@ -232,7 +233,6 @@ exports.croneJob = () => {
             new ErrorHandler("Bank account not found", StatusCodes.NOT_FOUND)
           );
         } else if (event.status === "Completed") {
-          console.log(event);
           const calculatedPercentage = await calculate60Percent(
             arr[obj].amount
           );
@@ -251,7 +251,6 @@ exports.croneJob = () => {
             event.creator.avatar
           );
 
-          console.log(amount);
           // updating the charge field
           if (amount.source_transaction === null) {
             await Transaction.update(
@@ -260,11 +259,30 @@ exports.croneJob = () => {
               },
               { where: { eventId: obj } }
             );
+
+            await Event.update(
+              {
+                totalAmount: arr[obj].amount,
+                commission: amount.amount,
+                payStatus: "Success",
+              },
+              { where: { eventId: obj } }
+            );
+          }
+
+          if (amount.source_transaction !== null) {
+            await Event.update(
+              {
+                totalAmount: arr[obj].amount,
+                commission: 0,
+                payStatus: "Cancelled",
+              },
+              { where: { eventId: obj } }
+            );
           }
         }
       }
     } catch (error) {
-      console.log(error);
       throw new Error(error.message);
     }
   });
