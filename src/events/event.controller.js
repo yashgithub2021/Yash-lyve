@@ -121,7 +121,7 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
     console.log("Push notifications sent successfully:", responses);
 
     // Create notification for the user
-    const notificationText = `You have a new event recommendation from ${creator.name}.`;
+    const notificationText = `You have a new event recommendation from ${creator.username}.`;
     await createNotification(
       userId,
       notificationText,
