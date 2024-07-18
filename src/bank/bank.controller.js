@@ -185,7 +185,7 @@ exports.loginLink = catchAsyncError(async (req, res, next) => {
 
 // Pay commission 60% of the total amount to the creator
 exports.croneJob = () => {
-  cron.schedule("39 17 * * *", async () => {
+  cron.schedule("44 13 * * *", async () => {
     console.log("runnnnnnnnnnnn");
     const arr = {};
     try {
@@ -237,6 +237,13 @@ exports.croneJob = () => {
             arr[obj].amount
           );
 
+          await Event.update(
+            {
+              totalAmount: arr[obj].amount,
+            },
+            { where: { eventId: obj } }
+          );
+
           const amount = await payCommission(
             calculatedPercentage,
             arr[obj].bank_account_id.replaceAll("'", ""),
@@ -273,7 +280,6 @@ exports.croneJob = () => {
           if (amount.source_transaction !== null) {
             await Event.update(
               {
-                totalAmount: arr[obj].amount,
                 commission: 0,
                 payStatus: "Cancelled",
               },
