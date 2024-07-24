@@ -25,7 +25,6 @@ const createNotification = async (userId, text, title, userAvatar) => {
 };
 
 exports.createEvent = catchAsyncError(async (req, res, next) => {
-  console.log("Create event", req.body);
   const { userId } = req;
 
   const user = await userModel.findByPk(userId);
@@ -132,6 +131,11 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
     const newEvent = await eventModel.findByPk(event.id, {
       include: [{ model: genreModel, as: "genre", attributes: ["id", "name"] }],
     });
+
+    // Add total spots
+    let updateTotalSpots = {};
+    updateTotalSpots.totalSpots = newEvent.spots;
+    await event.update(updateTotalSpots);
 
     res.status(StatusCodes.CREATED).json({ event: newEvent });
   } catch (error) {

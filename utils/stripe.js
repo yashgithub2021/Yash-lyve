@@ -386,7 +386,7 @@ const payRefund = async (refundAmount, paymentIntentId, next) => {
 // Create transaction model
 const createTransaction = async (customer, data, paid) => {
   try {
-    await Transaction.create({
+    const transaction = await Transaction.create({
       userId: data.metadata.userId,
       eventId: data.metadata.eventId,
       customer_id: data.customer,
@@ -398,7 +398,10 @@ const createTransaction = async (customer, data, paid) => {
       charge: paid,
       bank_account_id: data.metadata.accountId,
     });
-    updateEventSpots(data.metadata.eventId);
+
+    if (transaction.payment_status === "succeeded") {
+      updateEventSpots(data.metadata.eventId);
+    }
   } catch (error) {
     throw new Error(error.message);
   }
