@@ -125,6 +125,10 @@ const eventModel = db.define(
       type: DataTypes.STRING,
       defaultValue: "none",
     },
+    totalSpots: {
+      type: DataTypes.STRING,
+      defaultValue: "0",
+    },
     totalGuest: {
       type: DataTypes.STRING,
       defaultValue: "0",
