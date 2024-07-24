@@ -972,6 +972,7 @@ exports.getUserEvents = catchAsyncError(async (req, res, next) => {
         where: { deletedAt: null },
       },
     ],
+    order: [["createdAt", "DESC"]],
   };
 
   if (page_number && page_size) {
