@@ -19,7 +19,8 @@ const {
   getSuggestedUsers,
   getUserProfile,
   getAllUsers,
-  sendDummyToken
+  sendDummyToken,
+  logoutUser,
 } = require("./user.controller");
 const { user } = require("../../middlewares/validate");
 const { upload } = require("../../utils/s3");
@@ -40,6 +41,7 @@ router.delete("/delete", auth, deleteUser);
 router.get("/user-profile/:userId", auth, getUserProfile);
 router.get("/suggested-users", auth, getSuggestedUsers);
 router.get("/get-all-users", auth, getAllUsers);
+router.put("/user-logout", auth, logoutUser);
 
 //=================================Follow Stuff =====================================================
 router.post("/follow/:creatorId", auth, followCreator);

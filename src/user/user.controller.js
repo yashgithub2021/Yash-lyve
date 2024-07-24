@@ -1085,3 +1085,22 @@ exports.getSuggestedUsers = catchAsyncError(async (req, res, next) => {
 
   res.status(200).json({ success: true, suggestedUsers });
 });
+
+//Remove FCM token
+exports.logoutUser = catchAsyncError(async (req, res, next) => {
+  const { userId } = req;
+
+  const user = await userModel.findByPk(userId);
+
+  if (!user) {
+    next(new ErrorHandler("User not found"));
+  }
+
+  let updateFcmToken = {};
+
+  updateFcmToken.fcm_token = "";
+
+  await user.update(updateFcmToken);
+
+  res.status(200).json({ success: true });
+});
