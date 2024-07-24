@@ -25,7 +25,6 @@ const createNotification = async (userId, text, title, userAvatar) => {
 };
 
 exports.createEvent = catchAsyncError(async (req, res, next) => {
-  console.log("Create event", req.body);
   const { userId } = req;
 
   const user = await userModel.findByPk(userId);
@@ -55,8 +54,9 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
   const genreReq = await genreModel.findOne({ where: { name: genre } });
   const creator = await userModel.findByPk(userId);
 
-  if (!genreReq)
+  if (!genreReq) {
     return next(new ErrorHandler("Genre not found", StatusCodes.NOT_FOUND));
+  }
 
   const thumbnailFile = req.file;
   if (!thumbnailFile) {
@@ -97,11 +97,12 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
     },
   });
 
-  // Extract FCM tokens from the result
+  // Extract FCM tokens from the result and filter out any empty tokens
   const fcmTokens = followers.map((follower) => follower.fcm_token).filter(token => token);
 
   console.log("FCM Tokens:", fcmTokens);
 
+  // Send notifications if there are any valid FCM tokens
   if (fcmTokens.length > 0) {
     const notificationMessage = {
       notification: {
@@ -116,23 +117,27 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
     });
 
     try {
-      const responses = await Promise.all(sendPromises);
-      console.log("Push notifications sent successfully:", responses);
-
-      const notificationText = `You have a new event recommendation from ${user.username}.`;
-      await createNotification(userId, notificationText, "New Event Recommendation", user.avatar);
+      // Wait for all promises to resolve (i.e., all notifications are sent)
+      await Promise.all(sendPromises);
+      console.log("Push notifications sent successfully.");
     } catch (error) {
       console.error("Error sending push notifications:", error);
-      // Continue with the event creation process even if notifications fail
     }
   }
 
+  // Fetch the new event details including the genre
   const newEvent = await eventModel.findByPk(event.id, {
     include: [{ model: genreModel, as: "genre", attributes: ["id", "name"] }]
   });
 
+  // Add total spots
+  let updateTotalSpots = {};
+  updateTotalSpots.totalSpots = newEvent.spots;
+  await event.update(updateTotalSpots);
+
   res.status(StatusCodes.CREATED).json({ event: newEvent });
 });
+
 
 exports.deleteEvent = catchAsyncError(async (req, res, next) => {
   const {
