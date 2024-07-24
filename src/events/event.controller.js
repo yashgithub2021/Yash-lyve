@@ -575,54 +575,173 @@ exports.getEvents = catchAsyncError(async (req, res, next) => {
   res.status(200).json({ success: true, events: eventsWithWishlist });
 });
 
+// exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
+//   const { userId } = req;
+//   const { page_number, page_size, status, search_query } = req.query;
+
+//   let query = {
+//     order: [["createdAt", "DESC"]],
+//   };
+
+//   if (status) {
+//     if (status === "Live" || status === "Upcoming") {
+//       query.where = {
+//         status: status,
+//       };
+//     } else {
+//       query.where = {
+//         status: ["Upcoming", "Live"],
+//       };
+//     }
+//   }
+
+//   if (search_query) {
+//     if (query.where) {
+//       query.where = {
+//         [Op.and]: [
+//           query.where,
+//           {
+//             [Op.or]: [
+//               { title: { [Op.iLike]: `%${search_query}%` } },
+//               { host: { [Op.iLike]: `%${search_query}%` } },
+//             ],
+//           },
+//         ],
+//       };
+//     } else {
+//       query.where = {
+//         [Op.or]: [
+//           { title: { [Op.iLike]: `%${search_query}%` } },
+//           { host: { [Op.iLike]: `%${search_query}%` } },
+//         ],
+//       };
+//     }
+//   }
+
+//   if (page_number && page_size) {
+//     const currentPage = parseInt(page_number, 10) || 1;
+//     const limit = parseInt(page_size, 10) || 10;
+//     const offset = (currentPage - 1) * limit;
+
+//     query.offset = offset;
+//     query.limit = limit;
+//   }
+
+//   // Get the list of users that the current user is following
+//   const followingUsers = await userModel.findAll({
+//     where: {
+//       id: {
+//         [Op.in]: db.literal(`(
+//           SELECT "following_user_id"
+//           FROM "Follow"
+//           WHERE "follower_user_id" = '${userId}'
+//         )`),
+//       },
+//     },
+//     attributes: ["id"],
+//   });
+
+//   // Extract the IDs of the following users
+//   const followingUserIds = followingUsers.map((user) => user.id);
+
+//   // Get events associated with the following users
+//   const following_events = await eventModel.findAll({
+//     where: {
+//       userId: {
+//         [Op.in]: followingUserIds,
+//       },
+//       ...query.where, // Merge with existing where conditions
+//     },
+//     ...query,
+//     include: [
+//       {
+//         model: genreModel,
+//         as: "genre",
+//         attributes: ["id", "name", "thumbnail"],
+//       },
+//       {
+//         model: userModel,
+//         as: "creator",
+//         attributes: ["id", "username", "avatar"],
+//         paranoid: false, // Include soft-deleted users
+//       },
+//     ],
+//   });
+
+//   // Check if each event is wishlisted by the current user
+//   const formattedEvents = await Promise.all(
+//     following_events.map(async (event) => {
+//       const isWishlisted = await Wishlist.findOne({
+//         where: {
+//           userId,
+//           eventId: event.id,
+//           isWishlisted: true,
+//         },
+//         attributes: ["id"],
+//       });
+//       const isLiked = await Wishlist.findOne({
+//         where: { userId, eventId: event.id, liked: true },
+//       });
+//       const isDisLiked = await Wishlist.findOne({
+//         where: { userId, eventId: event.id, disliked: true },
+//       });
+
+//       const likesCount = await Wishlist.count({
+//         where: { eventId: event.id, liked: true },
+//       });
+//       const dislikesCount = await Wishlist.count({
+//         where: { eventId: event.id, disliked: true },
+//       });
+
+//       return {
+//         ...event.toJSON(),
+//         isWishlisted: !!isWishlisted, // Convert to boolean
+//         isLiked: !!isLiked,
+//         isDisLiked: !!isDisLiked,
+//         likes_count: likesCount,
+//         dislikes_count: dislikesCount,
+//       };
+//     })
+//   );
+
+//   res.status(StatusCodes.OK).json({ following_events: formattedEvents });
+// });
+
 exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
   const { userId } = req;
   const { page_number, page_size, status, search_query } = req.query;
 
-  let query = {
-    order: [["createdAt", "DESC"]], // Order events by creation date in descending order
+  let whereConditions = {
+    userId: {
+      [Op.in]: db.literal(`(
+        SELECT "following_user_id"
+        FROM "Follow"
+        WHERE "follower_user_id" = '${userId}'
+      )`),
+    },
   };
 
-  // if (status) {
-  //   query.where = {
-  //     status,
-  //   };
-  // }
-
-  if (status) {
-    if (status === "Live" || status === "Upcoming") {
-      query.where = {
-        status: status,
-      };
-    } else {
-      query.where = {
-        status: ["Upcoming", "Live"],
-      };
-    }
+  if (status && status !== "") {
+    whereConditions.status = status;
+  } else {
+    // If status is not provided or is an empty string, include both "Live" and "Upcoming"
+    whereConditions.status = ["Upcoming", "Live"];
   }
 
   if (search_query) {
-    if (query.where) {
-      query.where = {
-        [Op.and]: [
-          query.where,
-          {
-            [Op.or]: [
-              { title: { [Op.iLike]: `%${search_query}%` } },
-              { host: { [Op.iLike]: `%${search_query}%` } },
-            ],
-          },
-        ],
-      };
-    } else {
-      query.where = {
-        [Op.or]: [
-          { title: { [Op.iLike]: `%${search_query}%` } },
-          { host: { [Op.iLike]: `%${search_query}%` } },
-        ],
-      };
-    }
+    whereConditions = {
+      ...whereConditions,
+      [Op.or]: [
+        { title: { [Op.iLike]: `%${search_query}%` } },
+        { host: { [Op.iLike]: `%${search_query}%` } },
+      ],
+    };
   }
+
+  let query = {
+    where: whereConditions,
+    order: [["createdAt", "DESC"]],
+  };
 
   if (page_number && page_size) {
     const currentPage = parseInt(page_number, 10) || 1;
@@ -633,31 +752,8 @@ exports.getFollowingEvents = catchAsyncError(async (req, res, next) => {
     query.limit = limit;
   }
 
-  // Get the list of users that the current user is following
-  const followingUsers = await userModel.findAll({
-    where: {
-      id: {
-        [Op.in]: db.literal(`(
-          SELECT "following_user_id" 
-          FROM "Follow" 
-          WHERE "follower_user_id" = '${userId}'
-        )`),
-      },
-    },
-    attributes: ["id"],
-  });
-
-  // Extract the IDs of the following users
-  const followingUserIds = followingUsers.map((user) => user.id);
-
-  // Get events associated with the following users
+  // Get events associated with the users the current user is following
   const following_events = await eventModel.findAll({
-    where: {
-      userId: {
-        [Op.in]: followingUserIds,
-      },
-      ...query.where, // Merge with existing where conditions
-    },
     ...query,
     include: [
       {
