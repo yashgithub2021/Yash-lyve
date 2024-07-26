@@ -185,7 +185,7 @@ exports.loginLink = catchAsyncError(async (req, res, next) => {
 
 // Pay commission 60% of the total amount to the creator
 exports.croneJob = () => {
-  cron.schedule("39 17 * * *", async () => {
+  cron.schedule("44 13 * * *", async () => {
     console.log("runnnnnnnnnnnn");
     const arr = {};
     try {
@@ -210,6 +210,7 @@ exports.croneJob = () => {
           }
         }
       }
+
       // calculate 60% of the total amount and transfer to the bank
       for (let obj in arr) {
         const event = await eventModel.findByPk(obj, {
@@ -232,9 +233,15 @@ exports.croneJob = () => {
             new ErrorHandler("Bank account not found", StatusCodes.NOT_FOUND)
           );
         } else if (event.status === "Completed") {
-          console.log(event);
           const calculatedPercentage = await calculate60Percent(
             arr[obj].amount
+          );
+
+          await Event.update(
+            {
+              totalAmount: arr[obj].amount,
+            },
+            { where: { eventId: obj } }
           );
 
           const amount = await payCommission(
@@ -251,7 +258,6 @@ exports.croneJob = () => {
             event.creator.avatar
           );
 
-          console.log(amount);
           // updating the charge field
           if (amount.source_transaction === null) {
             await Transaction.update(
@@ -260,11 +266,29 @@ exports.croneJob = () => {
               },
               { where: { eventId: obj } }
             );
+
+            await Event.update(
+              {
+                totalAmount: arr[obj].amount,
+                commission: amount.amount,
+                payStatus: "Success",
+              },
+              { where: { eventId: obj } }
+            );
+          }
+
+          if (amount.source_transaction !== null) {
+            await Event.update(
+              {
+                commission: 0,
+                payStatus: "Cancelled",
+              },
+              { where: { eventId: obj } }
+            );
           }
         }
       }
     } catch (error) {
-      console.log(error);
       throw new Error(error.message);
     }
   });

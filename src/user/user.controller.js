@@ -209,18 +209,18 @@ exports.register = catchAsyncError(async (req, res, next) => {
   } else {
     user = imageUrl
       ? await verifiedModel.create({
-        ...req.body,
-        role: "User",
-        fcm_token: fireBaseToken,
-        dob: new Date(dob),
-        avatar: imageUrl.Location,
-      })
+          ...req.body,
+          role: "User",
+          fcm_token: fireBaseToken,
+          dob: new Date(dob),
+          avatar: imageUrl.Location,
+        })
       : await verifiedModel.create({
-        ...req.body,
-        role: "User",
-        fcm_token: fireBaseToken,
-        dob: new Date(dob),
-      });
+          ...req.body,
+          role: "User",
+          fcm_token: fireBaseToken,
+          dob: new Date(dob),
+        });
   }
 
   const otp = generateOTP();
@@ -238,6 +238,7 @@ exports.register = catchAsyncError(async (req, res, next) => {
       .status(StatusCodes.CREATED)
       .json({ message: `OTP sent to ${user.email} successfully` });
   } catch (error) {
+    console.log(error);
     return next(
       new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR)
     );
@@ -347,7 +348,12 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
   // Generate JWT token for the user
   const token = user.getJWTToken();
   const notificationText = `Welcome to Lyvechat and unlock the events in the modern day of virtuality`;
-  await createNotification(user.id, notificationText, "Account Created", user.avatar);
+  await createNotification(
+    user.id,
+    notificationText,
+    "Account Created",
+    user.avatar
+  );
 
   res.status(StatusCodes.CREATED).json({ success: true, user, token });
 });
@@ -1078,4 +1084,23 @@ exports.getSuggestedUsers = catchAsyncError(async (req, res, next) => {
   }));
 
   res.status(200).json({ success: true, suggestedUsers });
+});
+
+//Remove FCM token
+exports.logoutUser = catchAsyncError(async (req, res, next) => {
+  const { userId } = req;
+
+  const user = await userModel.findByPk(userId);
+
+  if (!user) {
+    next(new ErrorHandler("User not found"));
+  }
+
+  let updateFcmToken = {};
+
+  updateFcmToken.fcm_token = "";
+
+  await user.update(updateFcmToken);
+
+  res.status(200).json({ success: true });
 });
