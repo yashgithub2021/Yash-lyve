@@ -782,14 +782,10 @@ exports.deleteUser = catchAsyncError(async (req, res, next) => {
 /* ====================================FOLLOW STUFF==================================================*/
 exports.followCreator = catchAsyncError(async (req, res, next) => {
   console.log("Follow user", req.params);
-  const {
-    params: { creatorId },
-  } = req;
-
+  const { params: { creatorId } } = req;
   const { userId } = req;
 
   const currUser = await userModel.findByPk(userId);
-
   const targetCreator = await userModel.findByPk(creatorId);
 
   if (userId === creatorId) {
@@ -822,33 +818,38 @@ exports.followCreator = catchAsyncError(async (req, res, next) => {
     currUser.avatar
   );
 
-  let token = targetCreator.fcm_token;
+  const token = targetCreator.fcm_token;
   console.log("Target user FCM token:", token);
 
-  const fcmMessage = {
-    notification: {
-      title: "New Follower",
-      body: `${currUser.username} started following you.`,
-    },
-    token,
-    data: {
-      type: "follow",
-    },
-  };
+  if (token) {
+    const fcmMessage = {
+      notification: {
+        title: "New Follower",
+        body: `${currUser.username} started following you.`,
+      },
+      token,
+      data: {
+        type: "follow",
+      },
+    };
 
-  try {
-    await messaging.send(fcmMessage);
-    console.log("Push notification sent successfully.");
-  } catch (error) {
-    // Handle error if FCM token is expired or invalid
-    console.error("Error sending push notification:", error);
-    // Log the error and proceed with the follow operation
+    try {
+      await messaging.send(fcmMessage);
+      console.log("Push notification sent successfully.");
+    } catch (error) {
+      // Handle error if FCM token is expired or invalid
+      console.error("Error sending push notification:", error);
+      // Log the error and proceed with the follow operation
+    }
+  } else {
+    console.log("No valid FCM token found for the target user.");
   }
 
   res
     .status(StatusCodes.CREATED)
     .json({ success: true, message: "You are now following this user" });
 });
+
 
 exports.unfollowCreator = catchAsyncError(async (req, res, next) => {
   console.log("Unfollow creator", req.params);
