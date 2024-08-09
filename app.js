@@ -33,6 +33,7 @@ const {
   subscriptionRoute,
   transactionRoute,
   bankRoute,
+  contactRoute,
 } = require("./src");
 const { croneJob } = require("./src/bank/bank.controller");
 const { cronJobs } = require("./utils/cronjobs");
@@ -46,6 +47,7 @@ app.use("/api/notification", notificationRoute);
 app.use("/api/bank", bankRoute);
 app.use("/api/subscription", subscriptionRoute);
 app.use("/api/transaction", transactionRoute);
+app.use("/api/contact", contactRoute);
 
 app.all("*", async (req, res) => {
   res.status(404).json({
