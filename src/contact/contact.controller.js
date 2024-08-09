@@ -47,11 +47,13 @@ exports.getSingleContact = catchAsyncError(async (req, res, next) => {
 exports.deleteContact = catchAsyncError(async (req, res, next) => {
   const { id } = req.params;
 
-  const contact = await contactModel.destroy(id);
+  const contact = await contactModel.findByPk(id);
 
   if (!contact) {
     return next(new ErrorHandler("Query not found", StatusCodes.NOT_FOUND));
   }
+
+  await contact.destroy();
 
   res.status(201).json({ success: true, contact });
 });
