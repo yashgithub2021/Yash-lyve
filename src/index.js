@@ -1,5 +1,6 @@
 const { userRoute, userModel } = require("./user");
 const { bankRoute } = require("./bank");
+const { contactRoute } = require("./contact");
 const { eventModel, eventRouter } = require("./events");
 const { adminRouter } = require("./admin");
 const { wishlistRoute, Wishlist } = require("./wishlist");
@@ -83,6 +84,7 @@ module.exports = {
   adminRouter,
   wishlistRoute,
   contentRoute,
+  contactRoute,
   notificationRoute,
   bankRoute,
   subscriptionRoute,
