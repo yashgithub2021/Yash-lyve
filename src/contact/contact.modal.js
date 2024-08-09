@@ -33,18 +33,6 @@ const contactModel = db.define(
             throw new Error("Invalid Email Address");
           }
         },
-        isUnique: async function (value) {
-          const existingUser = await userModel.findOne({
-            where: {
-              email: value,
-              deletedAt: null,
-              isVerified: true,
-            },
-          });
-          if (existingUser) {
-            throw new Error("Email already in use!");
-          }
-        },
       },
     },
     desc: {
