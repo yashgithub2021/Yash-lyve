@@ -33,22 +33,22 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
   }
 
-  if (!user.bank_account_id) {
-    return next(
-      new ErrorHandler("Please add bank first", StatusCodes.NOT_FOUND)
-    );
-  }
+  // if (!user.bank_account_id) {
+  //   return next(
+  //     new ErrorHandler("Please add bank first", StatusCodes.NOT_FOUND)
+  //   );
+  // }
 
-  const confirmAccount = await stripe.accounts.retrieve(user.bank_account_id);
+  // const confirmAccount = await stripe.accounts.retrieve(user.bank_account_id);
 
-  if (confirmAccount.capabilities.transfers !== "active") {
-    return next(
-      new ErrorHandler(
-        "Stripe account verification is pending",
-        StatusCodes.BAD_REQUEST
-      )
-    );
-  }
+  // if (confirmAccount.capabilities.transfers !== "active") {
+  //   return next(
+  //     new ErrorHandler(
+  //       "Stripe account verification is pending",
+  //       StatusCodes.BAD_REQUEST
+  //     )
+  //   );
+  // }
 
   const { genre } = req.body;
   const genreReq = await genreModel.findOne({ where: { name: genre } });
