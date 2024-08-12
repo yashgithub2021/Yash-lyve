@@ -76,7 +76,7 @@ const verifiedModel = db.define(
     },
     username: {
       type: DataTypes.STRING,
-      allowNull: false,
+      // allowNull: false,
       // validate: {
       //   notNull: { msg: "Username is required" },
       //   notEmpty: { msg: "Username is required" },
@@ -84,7 +84,7 @@ const verifiedModel = db.define(
     },
     mobile_no: {
       type: DataTypes.STRING,
-      allowNull: false,
+      // allowNull: false,
       // validate: {
       //   notNull: { msg: "Phone is required" },
       //   notEmpty: { msg: "Phone is required" },
@@ -104,7 +104,7 @@ const verifiedModel = db.define(
     },
     country: {
       type: DataTypes.STRING,
-      allowNull: false,
+      // allowNull: false,
       // validate: {
       //   notNull: { msg: "Country is required" },
       //   notEmpty: { msg: "Country is required" },
@@ -126,7 +126,7 @@ const verifiedModel = db.define(
     },
     role: {
       type: DataTypes.ENUM("User", "Admin"),
-      allowNull: false,
+      // allowNull: false,
       validate: {
         isIn: {
           args: [["User", "Admin"]],
@@ -136,7 +136,7 @@ const verifiedModel = db.define(
     },
     gender: {
       type: DataTypes.ENUM("Male", "Female"),
-      allowNull: false,
+      // allowNull: false,
       // validate: {
       //   notNull: { msg: "Gender is required" },
       //   notEmpty: { msg: "Gender is required" },
@@ -157,7 +157,7 @@ const verifiedModel = db.define(
     },
   },
   {
-    timestamps: true,
+    // timestamps: true,
     defaultScope: {
       attributes: { exclude: ["password"] },
     },
@@ -216,49 +216,49 @@ const userModel = db.define(
     },
     username: {
       type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        notNull: { msg: "Username is required" },
-        notEmpty: { msg: "Username is required" },
-      },
+      // allowNull: false,
+      // validate: {
+      //   notNull: { msg: "Username is required" },
+      //   notEmpty: { msg: "Username is required" },
+      // },
     },
     mobile_no: {
       type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        notNull: { msg: "Phone is required" },
-        notEmpty: { msg: "Phone is required" },
-        isUnique: async function (value) {
-          const existingUser = await userModel.findOne({
-            where: {
-              mobile_no: value,
-              deletedAt: null,
-              isVerified: true,
-            },
-          });
-          if (existingUser) {
-            throw new Error("Mobile number already in use!");
-          }
-        },
-      },
+      // allowNull: false,
+      // validate: {
+      //   notNull: { msg: "Phone is required" },
+      //   notEmpty: { msg: "Phone is required" },
+      //   isUnique: async function (value) {
+      //     const existingUser = await userModel.findOne({
+      //       where: {
+      //         mobile_no: value,
+      //         deletedAt: null,
+      //         isVerified: true,
+      //       },
+      //     });
+      //     if (existingUser) {
+      //       throw new Error("Mobile number already in use!");
+      //     }
+      //   },
+      // },
     },
     country: {
       type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        notNull: { msg: "Country is required" },
-        notEmpty: { msg: "Country is required" },
-      },
+      // allowNull: false,
+      // validate: {
+      //   notNull: { msg: "Country is required" },
+      //   notEmpty: { msg: "Country is required" },
+      // },
     },
     dob: {
       type: DataTypes.DATE,
-      validate: {
-        isValidDate: function (value) {
-          if (!value || !isDate(value)) {
-            throw new Error("Empty or invalid date of birth.");
-          }
-        },
-      },
+      // validate: {
+      //   isValidDate: function (value) {
+      //     if (!value || !isDate(value)) {
+      //       throw new Error("Empty or invalid date of birth.");
+      //     }
+      //   },
+      // },
     },
     isVerified: {
       type: DataTypes.BOOLEAN,
@@ -276,11 +276,11 @@ const userModel = db.define(
     },
     gender: {
       type: DataTypes.ENUM("Male", "Female"),
-      allowNull: false,
-      validate: {
-        notNull: { msg: "Gender is required" },
-        notEmpty: { msg: "Gender is required" },
-      },
+      // allowNull: false,
+      // validate: {
+      //   notNull: { msg: "Gender is required" },
+      //   notEmpty: { msg: "Gender is required" },
+      // },
     },
     avatar: {
       type: DataTypes.STRING,
@@ -297,7 +297,7 @@ const userModel = db.define(
     },
   },
   {
-    timestamps: true,
+    // timestamps: true,
     paranoid: true,
     defaultScope: {
       attributes: { exclude: ["password"] },
