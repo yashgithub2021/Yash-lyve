@@ -1,0 +1,51 @@
+name: deploy
+
+on:
+  push: 
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Login to Docker Hub
+        run: docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+        env:  
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t pradyumnaquantum/lyvechat-backend .
+          docker push pradyumnaquantum/lyvechat-backend
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: SSH into EC2 instance
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_IP }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }} 
+          script: |
+            ssh i ${{ secrets.EC2_SSH_PRIVATE_KEY }} ec2-user@${{ secrets.EC2_IP }}
+            docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+            # Pull the latest Docker image from Docker Hub
+            docker pull pradyumnaquantum/lyvechat-backend
+
+            # Stop and remove the existing Docker container (if any)
+            docker stop lyvechat-container || true
+            docker rm lyvechat-container || true
+            docker container prune --force
+            docker image prune --force
+            docker system prune --force
+
+            # Run the new Docker container
+            docker run -d --name lyvechat-container --restart=always --env-file lyvechat/config.env -p 5000:5000 -v /home/ec2-user/uploads:/app/public pradyumnaquantum/lyvechat-backend
+      
