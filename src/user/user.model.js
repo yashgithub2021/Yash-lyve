@@ -110,16 +110,16 @@ const verifiedModel = db.define(
       //   notEmpty: { msg: "Country is required" },
       // },
     },
-    dob: {
-      type: DataTypes.DATE,
-      // validate: {
-      //   isValidDate: function (value) {
-      //     if (!value || !isDate(value)) {
-      //       throw new Error("Empty or invalid date of birth.");
-      //     }
-      //   },
-      // },
-    },
+    // dob: {
+    //   type: DataTypes.DATE,
+    //   validate: {
+    //     isValidDate: function (value) {
+    //       if (!value || !isDate(value)) {
+    //         throw new Error("Empty or invalid date of birth.");
+    //       }
+    //     },
+    //   },
+    // },
     isVerified: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
@@ -134,14 +134,14 @@ const verifiedModel = db.define(
         },
       },
     },
-    gender: {
-      type: DataTypes.ENUM("Male", "Female"),
-      // allowNull: false,
-      // validate: {
-      //   notNull: { msg: "Gender is required" },
-      //   notEmpty: { msg: "Gender is required" },
-      // },
-    },
+    // gender: {
+    //   type: DataTypes.ENUM("Male", "Female"),
+    //   allowNull: false,
+    //   validate: {
+    //     notNull: { msg: "Gender is required" },
+    //     notEmpty: { msg: "Gender is required" },
+    //   },
+    // },
     avatar: {
       type: DataTypes.STRING,
       defaultValue: random_profile(),
@@ -157,7 +157,7 @@ const verifiedModel = db.define(
     },
   },
   {
-    // timestamps: true,
+    timestamps: true,
     defaultScope: {
       attributes: { exclude: ["password"] },
     },
@@ -250,16 +250,16 @@ const userModel = db.define(
       //   notEmpty: { msg: "Country is required" },
       // },
     },
-    dob: {
-      type: DataTypes.DATE,
-      // validate: {
-      //   isValidDate: function (value) {
-      //     if (!value || !isDate(value)) {
-      //       throw new Error("Empty or invalid date of birth.");
-      //     }
-      //   },
-      // },
-    },
+    // dob: {
+    //   type: DataTypes.DATE,
+    //   validate: {
+    //     isValidDate: function (value) {
+    //       if (!value || !isDate(value)) {
+    //         throw new Error("Empty or invalid date of birth.");
+    //       }
+    //     },
+    //   },
+    // },
     isVerified: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
@@ -274,14 +274,14 @@ const userModel = db.define(
         },
       },
     },
-    gender: {
-      type: DataTypes.ENUM("Male", "Female"),
-      // allowNull: false,
-      // validate: {
-      //   notNull: { msg: "Gender is required" },
-      //   notEmpty: { msg: "Gender is required" },
-      // },
-    },
+    // gender: {
+    //   type: DataTypes.ENUM("Male", "Female"),
+    //   allowNull: false,
+    //   validate: {
+    //     notNull: { msg: "Gender is required" },
+    //     notEmpty: { msg: "Gender is required" },
+    //   },
+    // },
     avatar: {
       type: DataTypes.STRING,
       defaultValue: random_profile(),
@@ -297,7 +297,7 @@ const userModel = db.define(
     },
   },
   {
-    // timestamps: true,
+    timestamps: true,
     paranoid: true,
     defaultScope: {
       attributes: { exclude: ["password"] },
