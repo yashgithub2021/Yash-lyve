@@ -10,12 +10,12 @@ console.log({ database, username, password, host, dialect });
 const sequelize = new Sequelize(database, username, password, {
   host,
   dialect,
-  dialectOptions: {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false,
-    },
-  },
+  // dialectOptions: {
+  //   ssl: {
+  //     require: true,
+  //     rejectUnauthorized: false,
+  //   },
+  // },
 });
 // const sequelize = new Sequelize({
 //   dialect: "sqlite",

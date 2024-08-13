@@ -88,109 +88,9 @@ exports.sendDummyToken = catchAsyncError(async (req, res, next) => {
     });
 });
 
-// exports.register = catchAsyncError(async (req, res, next) => {
-//   console.log("register", req.body);
-//   const { email, username, dob, fireBaseToken, mobile_no } = req.body;
-//   const imageFile = req.file;
-//   const imageUrl = imageFile && (await s3Uploadv2(imageFile));
-//   let user;
-//   const prevUser = await userModel.findOne({ email: email });
-
-//   if (!fireBaseToken) {
-//     return next(
-//       new ErrorHandler("Fire base token is required", StatusCodes.NOT_FOUND)
-//     );
-//   }
-
-//   const stripeCustomerId = await createStripeCustomer(email, username);
-
-//   if (prevUser && !prevUser.isVerified) {
-//     await prevUser.update({ ...req.body });
-//     user = prevUser;
-//     console.log(prevUser);
-//   } else {
-//     user = imageUrl
-//       ? await userModel.create({
-//         ...req.body,
-//         role: "User",
-//         fcm_token: fireBaseToken,
-//         dob: new Date(dob),
-//         avatar: imageUrl.Location,
-//       })
-//       : await userModel.create({
-//         ...req.body,
-//         role: "User",
-//         fcm_token: fireBaseToken,
-//         customerId: stripeCustomerId,
-//         dob: new Date(dob),
-//       });
-//   }
-
-//   const otp = generateOTP();
-
-//   await storeOTP({ otp, userId: user.id });
-
-//   try {
-//     const message = getMsg(otp);
-//     await sendEmail({
-//       email: user.email,
-//       subject: "Verify Registration OTP",
-//       message,
-//     });
-//     res
-//       .status(StatusCodes.CREATED)
-//       .json({ message: `OTP sent to ${user.email} successfully` });
-//   } catch (error) {
-//     return next(
-//       new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR)
-//     );
-//   }
-// });
-
-// exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
-//   const { otp, email } = req.body;
-//   if (!otp || !email) {
-//     return next(new ErrorHandler("Missing OTP", StatusCodes.BAD_REQUEST));
-//   }
-//   const otpInstance = await otpModel.findOne({ where: { otp } });
-//   const user = await userModel.findOne({ where: { email } });
-
-//   if (!user)
-//     return next(
-//       new ErrorHandler(
-//         "User not found please check entered email",
-//         StatusCodes.NOT_FOUND
-//       )
-//     );
-
-//     if(!otpInstance){
-
-//     }
-
-//   if (!otpInstance || !otpInstance.isValid()) {
-//     if (otpInstance) {
-//       await otpModel.destroy({ where: { id: otpInstance.id } });
-//       await userModel.destroy({ where: { email: email } });
-//     }
-//     return next(
-//       new ErrorHandler(
-//         "OTP is invalid or has been expired.",
-//         StatusCodes.BAD_REQUEST
-//       )
-//     );
-//   }
-
-//   user.isVerified = true;
-
-//   await user.save();
-//   await otpModel.destroy({ where: { id: otpInstance.id } });
-//   const token = user.getJWTToken();
-//   res.status(StatusCodes.CREATED).json({ success: true, user, token });
-// });
-
+// need to uncomment date
 exports.register = catchAsyncError(async (req, res, next) => {
-  console.log("register", req.body);
-  const { email, dob, fireBaseToken } = req.body;
+  const { email, fireBaseToken } = req.body;
   const imageFile = req.file;
   const imageUrl = imageFile && (await s3Uploadv2(imageFile));
   let user;
@@ -205,21 +105,21 @@ exports.register = catchAsyncError(async (req, res, next) => {
   if (prevUser && !prevUser.isVerified) {
     await prevUser.update({ ...req.body });
     user = prevUser;
-    console.log(prevUser);
+    // console.log(prevUser);
   } else {
     user = imageUrl
       ? await verifiedModel.create({
           ...req.body,
           role: "User",
           fcm_token: fireBaseToken,
-          dob: new Date(dob),
+          // dob: new Date(dob),
           avatar: imageUrl.Location,
         })
       : await verifiedModel.create({
           ...req.body,
           role: "User",
           fcm_token: fireBaseToken,
-          dob: new Date(dob),
+          // dob: new Date(dob),
         });
   }
 
@@ -238,7 +138,6 @@ exports.register = catchAsyncError(async (req, res, next) => {
       .status(StatusCodes.CREATED)
       .json({ message: `OTP sent to ${user.email} successfully` });
   } catch (error) {
-    console.log(error);
     return next(
       new ErrorHandler(error.message, StatusCodes.INTERNAL_SERVER_ERROR)
     );
@@ -260,10 +159,10 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
       "username",
       "mobile_no",
       "country",
-      "dob",
+      // "dob",
       "isVerified",
       "role",
-      "gender",
+      // "gender",
       "avatar",
       "fcm_token",
       "customerId",
@@ -315,10 +214,10 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
     username: userVerified.username,
     mobile_no: userVerified.mobile_no,
     country: userVerified.country,
-    dob: userVerified.dob,
+    // dob: userVerified.dob,
     isVerified: userVerified.isVerified,
     role: userVerified.role,
-    gender: userVerified.gender,
+    // gender: userVerified.gender,
     avatar: userVerified.avatar,
     fcm_token: userVerified.fcm_token,
     createdAt: userVerified.createdAt,
@@ -652,8 +551,8 @@ exports.getProfile = catchAsyncError(async (req, res, next) => {
       "username",
       "email",
       "mobile_no",
-      "dob",
-      "gender",
+      // "dob",
+      // "gender",
       "country",
     ], // Exclude 'role' attribute
   });
