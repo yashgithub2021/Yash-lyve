@@ -258,7 +258,6 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
 });
 
 exports.login = catchAsyncError(async (req, res, next) => {
-  console.log("login", req.body);
   const { email, password, fireBaseToken } = req.body;
 
   if (!fireBaseToken) {
@@ -687,7 +686,9 @@ exports.deleteUser = catchAsyncError(async (req, res, next) => {
 /* ====================================FOLLOW STUFF==================================================*/
 exports.followCreator = catchAsyncError(async (req, res, next) => {
   console.log("Follow user", req.params);
-  const { params: { creatorId } } = req;
+  const {
+    params: { creatorId },
+  } = req;
   const { userId } = req;
 
   const currUser = await userModel.findByPk(userId);
@@ -754,7 +755,6 @@ exports.followCreator = catchAsyncError(async (req, res, next) => {
     .status(StatusCodes.CREATED)
     .json({ success: true, message: "You are now following this user" });
 });
-
 
 exports.unfollowCreator = catchAsyncError(async (req, res, next) => {
   console.log("Unfollow creator", req.params);
