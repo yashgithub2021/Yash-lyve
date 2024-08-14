@@ -127,7 +127,7 @@ const verifiedModel = db.define(
     },
     role: {
       type: DataTypes.ENUM("User", "Admin"),
-      allowNull: false,
+      allowNull: true,
       validate: {
         isIn: {
           args: [["User", "Admin"]],
@@ -278,7 +278,7 @@ const userModel = db.define(
     },
     gender: {
       type: DataTypes.ENUM("Male", "Female"),
-      // allowNull: false,
+      allowNull: true,
       // validate: {
       //   notNull: { msg: "Gender is required" },
       //   notEmpty: { msg: "Gender is required" },
