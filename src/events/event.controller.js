@@ -54,8 +54,9 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
   const genreReq = await genreModel.findOne({ where: { name: genre } });
   const creator = await userModel.findByPk(userId);
 
-  if (!genreReq)
+  if (!genreReq) {
     return next(new ErrorHandler("Genre not found", StatusCodes.NOT_FOUND));
+  }
 
   const thumbnailFile = req.file;
   if (!thumbnailFile) {
@@ -96,58 +97,47 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
     },
   });
 
-  // Extract FCM tokens from the result
-  const fcmTokens = followers.map((follower) => follower.fcm_token);
+  // Extract FCM tokens from the result and filter out any empty tokens
+  const fcmTokens = followers.map((follower) => follower.fcm_token).filter(token => token);
 
   console.log("FCM Tokens:", fcmTokens);
 
-  const notificationMessage = {
-    notification: {
-      title: "New Event Recommendation!",
-      body: "You have a new event recommendation from your favorite content creator! Check out their profile.",
-    },
-  };
+  // Send notifications if there are any valid FCM tokens
+  if (fcmTokens.length > 0) {
+    const notificationMessage = {
+      notification: {
+        title: "New Event Recommendation!",
+        body: "You have a new event recommendation from your favorite content creator! Check out their profile."
+      }
+    };
 
-  // Prepare an array to hold promises for sending notifications to each device
-  const sendPromises = fcmTokens.map((token) => {
-    const message = { ...notificationMessage, token };
-    return messaging.send(message);
-  });
-
-  try {
-    // Wait for all promises to resolve (i.e., all notifications are sent)
-    const responses = await Promise.all(sendPromises);
-    console.log("Push notifications sent successfully:", responses);
-
-    // Create notification for the user
-    const notificationText = `You have a new event recommendation from ${creator.username}.`;
-    await createNotification(
-      userId,
-      notificationText,
-      "New Event Recommendation",
-      creator.avatar
-    );
-
-    const newEvent = await eventModel.findByPk(event.id, {
-      include: [{ model: genreModel, as: "genre", attributes: ["id", "name"] }],
+    const sendPromises = fcmTokens.map(token => {
+      const message = { ...notificationMessage, token };
+      return messaging.send(message);
     });
 
-    // Add total spots
-    let updateTotalSpots = {};
-    updateTotalSpots.totalSpots = newEvent.spots;
-    await event.update(updateTotalSpots);
-
-    res.status(StatusCodes.CREATED).json({ event: newEvent });
-  } catch (error) {
-    console.error("Error sending push notifications:", error);
-    next(
-      new ErrorHandler(
-        "Failed to send push notifications",
-        StatusCodes.INTERNAL_SERVER_ERROR
-      )
-    );
+    try {
+      // Wait for all promises to resolve (i.e., all notifications are sent)
+      await Promise.all(sendPromises);
+      console.log("Push notifications sent successfully.");
+    } catch (error) {
+      console.error("Error sending push notifications:", error);
+    }
   }
+
+  // Fetch the new event details including the genre
+  const newEvent = await eventModel.findByPk(event.id, {
+    include: [{ model: genreModel, as: "genre", attributes: ["id", "name"] }]
+  });
+
+  // Add total spots
+  let updateTotalSpots = {};
+  updateTotalSpots.totalSpots = newEvent.spots;
+  await event.update(updateTotalSpots);
+
+  res.status(StatusCodes.CREATED).json({ event: newEvent });
 });
+
 
 exports.deleteEvent = catchAsyncError(async (req, res, next) => {
   const {
