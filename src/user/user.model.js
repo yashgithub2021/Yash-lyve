@@ -112,6 +112,7 @@ const verifiedModel = db.define(
     },
     dob: {
       type: DataTypes.DATE,
+      allowNull: true,
       validate: {
         isValidDate: function (value) {
           if (!isDate(value)) {
@@ -252,6 +253,7 @@ const userModel = db.define(
     },
     dob: {
       type: DataTypes.DATE,
+      allowNull: true,
       validate: {
         isValidDate: function (value) {
           if (!isDate(value)) {
