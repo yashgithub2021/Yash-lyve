@@ -136,8 +136,9 @@ const verifiedModel = db.define(
       },
     },
     gender: {
-      type: DataTypes.ENUM("Male", "Female"),
-      allowNull: true,
+      type: DataTypes.STRING,
+      // type: DataTypes.ENUM("Male", "Female"),
+      // allowNull: true,
       // validate: {
       //   notNull: { msg: "Gender is required" },
       //   notEmpty: { msg: "Gender is required" },
@@ -277,8 +278,9 @@ const userModel = db.define(
       },
     },
     gender: {
-      type: DataTypes.ENUM("Male", "Female"),
-      allowNull: true,
+      type: DataTypes.STRING,
+      // type: DataTypes.ENUM("Male", "Female"),
+      // allowNull: true,
       // validate: {
       //   notNull: { msg: "Gender is required" },
       //   notEmpty: { msg: "Gender is required" },
