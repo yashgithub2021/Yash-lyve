@@ -114,8 +114,8 @@ const verifiedModel = db.define(
       type: DataTypes.DATE,
       validate: {
         isValidDate: function (value) {
-          if (!value || !isDate(value)) {
-            throw new Error("Empty or invalid date of birth.");
+          if (!isDate(value)) {
+            throw new Error("invalid date of birth.");
           }
         },
       },
@@ -136,11 +136,11 @@ const verifiedModel = db.define(
     },
     gender: {
       type: DataTypes.ENUM("Male", "Female"),
-      allowNull: false,
-      validate: {
-        notNull: { msg: "Gender is required" },
-        notEmpty: { msg: "Gender is required" },
-      },
+      // allowNull: false,
+      // validate: {
+      //   notNull: { msg: "Gender is required" },
+      //   notEmpty: { msg: "Gender is required" },
+      // },
     },
     avatar: {
       type: DataTypes.STRING,
