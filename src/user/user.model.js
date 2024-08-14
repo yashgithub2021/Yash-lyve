@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const { db } = require("../../config/database");
-const { DataTypes } = require("sequelize");
+const { DataTypes, Sequelize } = require("sequelize");
 
 const validateEmail = (email) => {
   var re = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
@@ -88,18 +88,18 @@ const verifiedModel = db.define(
       // validate: {
       //   notNull: { msg: "Phone is required" },
       //   notEmpty: { msg: "Phone is required" },
-      //   isUnique: async function (value) {
-      //     const existingUser = await userModel.findOne({
-      //       where: {
-      //         mobile_no: value,
-      //         deletedAt: null,
-      //         isVerified: true,
-      //       },
-      //     });
-      //     if (existingUser) {
-      //       throw new Error("Mobile number already in use!");
-      //     }
-      //   },
+      isUnique: async function (value) {
+        const existingUser = await userModel.findOne({
+          where: {
+            mobile_no: value,
+            deletedAt: null,
+            isVerified: true,
+          },
+        });
+        if (existingUser) {
+          throw new Error("Mobile number already in use!");
+        }
+      },
       // },
     },
     country: {
@@ -113,13 +113,13 @@ const verifiedModel = db.define(
     dob: {
       type: DataTypes.DATE,
       allowNull: true,
-      validate: {
-        isValidDate: function (value) {
-          if (!isDate(value)) {
-            throw new Error("invalid date of birth.");
-          }
-        },
-      },
+      // validate: {
+      //   isValidDate: function (value) {
+      //     if (!isDate(value)) {
+      //       throw new Error("invalid date of birth.");
+      //     }
+      //   },
+      // },
     },
     isVerified: {
       type: DataTypes.BOOLEAN,
@@ -230,18 +230,18 @@ const userModel = db.define(
       // validate: {
       //   notNull: { msg: "Phone is required" },
       //   notEmpty: { msg: "Phone is required" },
-      //   isUnique: async function (value) {
-      //     const existingUser = await userModel.findOne({
-      //       where: {
-      //         mobile_no: value,
-      //         deletedAt: null,
-      //         isVerified: true,
-      //       },
-      //     });
-      //     if (existingUser) {
-      //       throw new Error("Mobile number already in use!");
-      //     }
-      //   },
+      isUnique: async function (value) {
+        const existingUser = await userModel.findOne({
+          where: {
+            mobile_no: value,
+            deletedAt: null,
+            isVerified: true,
+          },
+        });
+        if (existingUser) {
+          throw new Error("Mobile number already in use!");
+        }
+      },
       // },
     },
     country: {
@@ -255,13 +255,13 @@ const userModel = db.define(
     dob: {
       type: DataTypes.DATE,
       allowNull: true,
-      validate: {
-        isValidDate: function (value) {
-          if (!isDate(value)) {
-            throw new Error("invalid date of birth.");
-          }
-        },
-      },
+      // validate: {
+      //   isValidDate: function (value) {
+      //     if (!isDate(value)) {
+      //       throw new Error("invalid date of birth.");
+      //     }
+      //   },
+      // },
     },
     isVerified: {
       type: DataTypes.BOOLEAN,
