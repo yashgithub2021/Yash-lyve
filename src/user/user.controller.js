@@ -90,7 +90,7 @@ exports.sendDummyToken = catchAsyncError(async (req, res, next) => {
 
 // need to uncomment date
 exports.register = catchAsyncError(async (req, res, next) => {
-  const { email, fireBaseToken } = req.body;
+  const { email, fireBaseToken, dob } = req.body;
   const imageFile = req.file;
   const imageUrl = imageFile && (await s3Uploadv2(imageFile));
   let user;
@@ -112,14 +112,14 @@ exports.register = catchAsyncError(async (req, res, next) => {
           ...req.body,
           role: "User",
           fcm_token: fireBaseToken,
-          // dob: new Date(dob),
+          dob: new Date(dob),
           avatar: imageUrl.Location,
         })
       : await verifiedModel.create({
           ...req.body,
           role: "User",
           fcm_token: fireBaseToken,
-          // dob: new Date(dob),
+          dob: new Date(dob),
         });
   }
 
@@ -159,10 +159,10 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
       "username",
       "mobile_no",
       "country",
-      // "dob",
+      "dob",
       "isVerified",
       "role",
-      // "gender",
+      "gender",
       "avatar",
       "fcm_token",
       "customerId",
@@ -214,10 +214,10 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
     username: userVerified.username,
     mobile_no: userVerified.mobile_no,
     country: userVerified.country,
-    // dob: userVerified.dob,
+    dob: userVerified.dob,
     isVerified: userVerified.isVerified,
     role: userVerified.role,
-    // gender: userVerified.gender,
+    gender: userVerified.gender,
     avatar: userVerified.avatar,
     fcm_token: userVerified.fcm_token,
     createdAt: userVerified.createdAt,
@@ -258,7 +258,6 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
 });
 
 exports.login = catchAsyncError(async (req, res, next) => {
-  console.log("login", req.body);
   const { email, password, fireBaseToken } = req.body;
 
   if (!fireBaseToken) {
@@ -687,7 +686,9 @@ exports.deleteUser = catchAsyncError(async (req, res, next) => {
 /* ====================================FOLLOW STUFF==================================================*/
 exports.followCreator = catchAsyncError(async (req, res, next) => {
   console.log("Follow user", req.params);
-  const { params: { creatorId } } = req;
+  const {
+    params: { creatorId },
+  } = req;
   const { userId } = req;
 
   const currUser = await userModel.findByPk(userId);
@@ -754,7 +755,6 @@ exports.followCreator = catchAsyncError(async (req, res, next) => {
     .status(StatusCodes.CREATED)
     .json({ success: true, message: "You are now following this user" });
 });
-
 
 exports.unfollowCreator = catchAsyncError(async (req, res, next) => {
   console.log("Unfollow creator", req.params);
