@@ -130,7 +130,7 @@ exports.getSingleTransaction = catchAsyncError(async (req, res, next) => {
       entryFees: event.entry_fee,
       spots: event.spots,
       hasFollowing: isAlreadyFollowing,
-      hasPaid: false,
+      hasPaid: true, // need to change false
       isWishlisted: isWishlist === null ? false : true,
       isLiked: isLike === null ? false : true,
     };

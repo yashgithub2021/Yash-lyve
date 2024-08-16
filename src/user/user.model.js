@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const { db } = require("../../config/database");
-const { DataTypes, Sequelize } = require("sequelize");
+const { DataTypes } = require("sequelize");
 
 const validateEmail = (email) => {
   var re = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
@@ -76,11 +76,11 @@ const verifiedModel = db.define(
     },
     username: {
       type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        notNull: { msg: "Username is required" },
-        notEmpty: { msg: "Username is required" },
-      },
+      // allowNull: false,
+      // validate: {
+      //   notNull: { msg: "Username is required" },
+      //   notEmpty: { msg: "Username is required" },
+      // },
     },
     mobile_no: {
       type: DataTypes.STRING,
@@ -100,7 +100,6 @@ const verifiedModel = db.define(
           throw new Error("Mobile number already in use!");
         }
       },
-      // },
     },
     country: {
       type: DataTypes.STRING,
@@ -139,10 +138,6 @@ const verifiedModel = db.define(
       type: DataTypes.STRING,
       // type: DataTypes.ENUM("Male", "Female"),
       // allowNull: true,
-      // validate: {
-      //   notNull: { msg: "Gender is required" },
-      //   notEmpty: { msg: "Gender is required" },
-      // },
     },
     avatar: {
       type: DataTypes.STRING,
@@ -218,11 +213,11 @@ const userModel = db.define(
     },
     username: {
       type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        notNull: { msg: "Username is required" },
-        notEmpty: { msg: "Username is required" },
-      },
+      // allowNull: false,
+      // validate: {
+      //   notNull: { msg: "Username is required" },
+      //   notEmpty: { msg: "Username is required" },
+      // },
     },
     mobile_no: {
       type: DataTypes.STRING,
@@ -242,7 +237,6 @@ const userModel = db.define(
           throw new Error("Mobile number already in use!");
         }
       },
-      // },
     },
     country: {
       type: DataTypes.STRING,
@@ -277,6 +271,7 @@ const userModel = db.define(
         },
       },
     },
+
     gender: {
       type: DataTypes.STRING,
       // type: DataTypes.ENUM("Male", "Female"),
