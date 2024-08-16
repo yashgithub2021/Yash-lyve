@@ -258,7 +258,6 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
 });
 
 exports.login = catchAsyncError(async (req, res, next) => {
-  console.log("login", req.body);
   const { email, password, fireBaseToken } = req.body;
 
   if (!fireBaseToken) {
