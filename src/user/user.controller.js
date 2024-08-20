@@ -88,7 +88,6 @@ exports.sendDummyToken = catchAsyncError(async (req, res, next) => {
     });
 });
 
-// need to uncomment date
 exports.register = catchAsyncError(async (req, res, next) => {
   const { email, fireBaseToken, dob } = req.body;
   const imageFile = req.file;
