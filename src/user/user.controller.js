@@ -88,9 +88,8 @@ exports.sendDummyToken = catchAsyncError(async (req, res, next) => {
     });
 });
 
-// need to uncomment date
 exports.register = catchAsyncError(async (req, res, next) => {
-  const { email, fireBaseToken } = req.body;
+  const { email, fireBaseToken, dob } = req.body;
   const imageFile = req.file;
   const imageUrl = imageFile && (await s3Uploadv2(imageFile));
   let user;
@@ -112,14 +111,14 @@ exports.register = catchAsyncError(async (req, res, next) => {
           ...req.body,
           role: "User",
           fcm_token: fireBaseToken,
-          // dob: new Date(dob),
+          dob: new Date(dob),
           avatar: imageUrl.Location,
         })
       : await verifiedModel.create({
           ...req.body,
           role: "User",
           fcm_token: fireBaseToken,
-          // dob: new Date(dob),
+          dob: new Date(dob),
         });
   }
 
