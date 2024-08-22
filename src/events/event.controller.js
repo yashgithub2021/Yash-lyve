@@ -33,22 +33,22 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
     return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
   }
 
-  // if (!user.bank_account_id) {
-  //   return next(
-  //     new ErrorHandler("Please add bank first", StatusCodes.NOT_FOUND)
-  //   );
-  // }
+  if (!user.bank_account_id) {
+    return next(
+      new ErrorHandler("Please add bank first", StatusCodes.NOT_FOUND)
+    );
+  }
 
-  // const confirmAccount = await stripe.accounts.retrieve(user.bank_account_id);
+  const confirmAccount = await stripe.accounts.retrieve(user.bank_account_id);
 
-  // if (confirmAccount.capabilities.transfers !== "active") {
-  //   return next(
-  //     new ErrorHandler(
-  //       "Stripe account verification is pending",
-  //       StatusCodes.BAD_REQUEST
-  //     )
-  //   );
-  // }
+  if (confirmAccount.capabilities.transfers !== "active") {
+    return next(
+      new ErrorHandler(
+        "Stripe account verification is pending",
+        StatusCodes.BAD_REQUEST
+      )
+    );
+  }
 
   const { genre } = req.body;
   const genreReq = await genreModel.findOne({ where: { name: genre } });
@@ -98,7 +98,9 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
   });
 
   // Extract FCM tokens from the result and filter out any empty tokens
-  const fcmTokens = followers.map((follower) => follower.fcm_token).filter(token => token);
+  const fcmTokens = followers
+    .map((follower) => follower.fcm_token)
+    .filter((token) => token);
 
   console.log("FCM Tokens:", fcmTokens);
 
@@ -107,11 +109,11 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
     const notificationMessage = {
       notification: {
         title: "New Event Recommendation!",
-        body: "You have a new event recommendation from your favorite content creator! Check out their profile."
-      }
+        body: "You have a new event recommendation from your favorite content creator! Check out their profile.",
+      },
     };
 
-    const sendPromises = fcmTokens.map(token => {
+    const sendPromises = fcmTokens.map((token) => {
       const message = { ...notificationMessage, token };
       return messaging.send(message);
     });
@@ -127,7 +129,7 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
 
   // Fetch the new event details including the genre
   const newEvent = await eventModel.findByPk(event.id, {
-    include: [{ model: genreModel, as: "genre", attributes: ["id", "name"] }]
+    include: [{ model: genreModel, as: "genre", attributes: ["id", "name"] }],
   });
 
   // Add total spots
@@ -137,7 +139,6 @@ exports.createEvent = catchAsyncError(async (req, res, next) => {
 
   res.status(StatusCodes.CREATED).json({ event: newEvent });
 });
-
 
 exports.deleteEvent = catchAsyncError(async (req, res, next) => {
   const {
