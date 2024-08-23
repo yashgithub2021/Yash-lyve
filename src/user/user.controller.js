@@ -334,7 +334,6 @@ exports.resendOTP = catchAsyncError(async (req, res, next) => {
 });
 
 exports.forgotPassword = catchAsyncError(async (req, res, next) => {
-  console.log("forgot password", req.body);
   const { email } = req.body;
   if (!email) {
     return next(
@@ -343,7 +342,6 @@ exports.forgotPassword = catchAsyncError(async (req, res, next) => {
   }
 
   const user = await userModel.findOne({ where: { email: req.body.email } });
-  console.log("usss", user);
 
   if (!user) {
     return next(
@@ -549,10 +547,10 @@ exports.getProfile = catchAsyncError(async (req, res, next) => {
       "username",
       "email",
       "mobile_no",
-      // "dob",
-      // "gender",
+      "dob",
+      "gender",
       "country",
-    ], // Exclude 'role' attribute
+    ],
   });
 
   if (!user)
