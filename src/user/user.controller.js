@@ -553,6 +553,8 @@ exports.getProfile = catchAsyncError(async (req, res, next) => {
     ],
   });
 
+  console.log("userrrr", user);
+
   if (!user)
     return next(new ErrorHandler("User not found", StatusCodes.NOT_FOUND));
 
