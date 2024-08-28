@@ -229,6 +229,8 @@ exports.verifyRegisterOTP = catchAsyncError(async (req, res, next) => {
     name: user.username,
   });
 
+  console.log(stripeCustomer);
+
   if (!stripeCustomer) {
     return next(new ErrorHandler("Stripe error", StatusCodes.BAD_REQUEST));
   }
